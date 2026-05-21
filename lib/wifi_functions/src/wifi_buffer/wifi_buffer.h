@@ -7,10 +7,10 @@
 class ClientsBuffer
 {
 private:
-    std::map<String, int> clients;
+    std::map<uint64_t, int> clients;
     std::shared_mutex mutex;
 
 public:
-    void addClient(const String &macAddress);
+    void addClient(const uint64_t &macAddress);
     void printClients();
 };

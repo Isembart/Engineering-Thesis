@@ -5,6 +5,7 @@
 #include "wifi_buffer/wifi_buffer.h"
 #include <HardwareSerial.h>
 #include <stdio.h>
+#include <crypto_functions.h>
 
 ClientsBuffer clientsBuffer;
 
@@ -82,5 +83,8 @@ void wifi_packet_handler(void *buffer, wifi_promiscuous_pkt_type_t type)
     sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X",
             src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5]);
 
-    clientsBuffer.addClient(String(macStr));
+    uint64_t macHash = hash_64_fnv1a(src_mac, 6);
+    // delete the stack declared macStr to save memory, we only need the hash for tracking
+    memset(macStr, 0, sizeof(macStr));
+    clientsBuffer.addClient(macHash);
 }

@@ -1,7 +1,7 @@
 #include "wifi_buffer.h"
 #include <HardwareSerial.h>
 
-void ClientsBuffer::addClient(const String &macAddress)
+void ClientsBuffer::addClient(const uint64_t &macAddress)
 {
     std::unique_lock lock(mutex);
     clients[macAddress]++;
