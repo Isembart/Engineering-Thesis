@@ -11,13 +11,8 @@
 
 const char *ssid = "Rzeznia nr 7";
 const char *password = "TVGRWUD57DJF";
-const unsigned long hopStartDelayMs = 5000;
-const unsigned long hopIntervalMs = 1000;
-const unsigned long hopDurationMs = 3UL * 60UL * 1000UL;
-
-bool hoppingStarted = false;
-unsigned long hoppingStartAt = 0;
-unsigned long lastHopAt = 0;
+const uint8_t NUMBER_OF_SWEEPS = 13;
+const unsigned long CHANNEL_SCAN_TIME = 250;
 
 void setup()
 {
@@ -50,22 +45,10 @@ void setup()
 
 void loop()
 {
-    unsigned long now = millis();
-
-    if (!hoppingStarted && now >= hopStartDelayMs)
+    for (uint8_t sweep = 0; sweep < NUMBER_OF_SWEEPS; ++sweep)
     {
-        hoppingStarted = true;
-        hoppingStartAt = now;
-        lastHopAt = now;
-    }
-
-    if (hoppingStarted && now - hoppingStartAt < hopDurationMs)
-    {
-        if (now - lastHopAt >= hopIntervalMs)
-        {
-            hop_wifi_channel();
-            lastHopAt = now;
-        }
+        delay(CHANNEL_SCAN_TIME);
+        hop_wifi_channel();
     }
 
     // hop thruogh every channel and sniff packets

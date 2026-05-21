@@ -1,39 +1,42 @@
 #include "wifi_functions.h"
 #include <esp_wifi.h>
-#include <WiFi.h>
+#include <esp_event.h>
+#include <esp_netif.h>
 #include "wifi_buffer/wifi_buffer.h"
 #include <HardwareSerial.h>
+#include <stdio.h>
 
 ClientsBuffer clientsBuffer;
 
 void init_wifi_sniffer()
 {
-    // Arduino WiFi.mode() already initializes the driver, so we avoid manual esp_wifi_init().
-    // Force STA + fixed channel before re-enabling promiscuous mode for stable hopping.
-    WiFi.mode(WIFI_MODE_STA);
-    WiFi.disconnect(true, false);
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    esp_wifi_set_promiscuous(false);
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_start());
+
+    ESP_ERROR_CHECK(esp_wifi_set_promiscuous(false));
 
     wifi_promiscuous_filter_t filter;
     filter.filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT;
-    esp_wifi_set_promiscuous_filter(&filter);
+    ESP_ERROR_CHECK(esp_wifi_set_promiscuous_filter(&filter));
 
-    esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+    ESP_ERROR_CHECK(esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE));
 
-    esp_wifi_set_promiscuous_rx_cb(wifi_packet_handler);
-    esp_wifi_set_promiscuous(true);
+    ESP_ERROR_CHECK(esp_wifi_set_promiscuous_rx_cb(wifi_packet_handler));
+    ESP_ERROR_CHECK(esp_wifi_set_promiscuous(true));
 }
 
 void hop_wifi_channel()
 {
     uint8_t current_channel;
-    if (esp_wifi_get_channel(&current_channel, nullptr) != ESP_OK)
-    {
-        Serial.println("Failed to read current WiFi channel");
-        return;
-    }
+    wifi_second_chan_t second_channel;
 
+    ESP_ERROR_CHECK(esp_wifi_get_channel(&current_channel, &second_channel));
     uint8_t new_channel = current_channel + 1;
     if (new_channel > 13)
     {
@@ -60,12 +63,24 @@ void wifi_packet_handler(void *buffer, wifi_promiscuous_pkt_type_t type)
 
     if (type != WIFI_PKT_MGMT)
     {
-        Serial.println("Received non-management packet, ignoring.");
-        return;
+        return; // ignore non-management frames
     }
 
-    String macAddress = String(pkt->payload + 10, 6); // Extract source MAC address from the packet
-    String macAddressStr = String(macAddress[0], HEX) + ":" + String(macAddress[1], HEX) + ":" + String(macAddress[2], HEX) + ":" +
-                           String(macAddress[3], HEX) + ":" + String(macAddress[4], HEX) + ":" + String(macAddress[5], HEX);
-    clientsBuffer.addClient(macAddressStr);
+    uint8_t *payload = pkt->payload;
+    // Frame Control: first byte holds subtype (high 4 bits) and type (low 2 bits of next nibble)
+    uint8_t fc0 = payload[0];
+    uint8_t subtype = (fc0 & 0xF0) >> 4;
+    const uint8_t PROBE_REQUEST_SUBTYPE = 4; // 802.11 probe request
+
+    if (subtype != PROBE_REQUEST_SUBTYPE)
+    {
+        return; // ignore beacons, probe responses, etc.
+    }
+
+    uint8_t *src_mac = payload + 10; // source MAC is at offset 10 in management frames
+    char macStr[18];
+    sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X",
+            src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5]);
+
+    clientsBuffer.addClient(String(macStr));
 }
