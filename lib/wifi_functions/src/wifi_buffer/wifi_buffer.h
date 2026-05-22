@@ -12,5 +12,6 @@ private:
 
 public:
     void addClient(const uint64_t &macAddress);
+    std::map<uint64_t, int> getFilteredClients(uint8_t minEncounterCount);
     void printClients();
 };

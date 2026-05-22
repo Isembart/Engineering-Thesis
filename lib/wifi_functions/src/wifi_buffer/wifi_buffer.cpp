@@ -7,6 +7,20 @@ void ClientsBuffer::addClient(const uint64_t &macAddress)
     clients[macAddress]++;
 }
 
+std::map<uint64_t, int> ClientsBuffer::getFilteredClients(uint8_t minEncounterCount)
+{
+    std::unique_lock lock(mutex);
+    std::map<uint64_t, int> filteredClients;
+    for (const auto &[mac, count] : clients)
+    {
+        if (count >= minEncounterCount)
+        {
+            filteredClients[mac] = count;
+        }
+    }
+    return filteredClients;
+}
+
 void ClientsBuffer::printClients()
 {
     std::shared_lock lock(mutex);

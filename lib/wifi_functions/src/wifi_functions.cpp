@@ -7,10 +7,15 @@
 #include <stdio.h>
 #include <crypto_functions.h>
 
-ClientsBuffer clientsBuffer;
-
-void init_wifi_sniffer()
+namespace
 {
+    ClientsBuffer *g_clientsBuffer = nullptr;
+}
+
+void init_wifi_sniffer(ClientsBuffer *clientsBuffer)
+{
+    g_clientsBuffer = clientsBuffer;
+
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
@@ -52,10 +57,10 @@ void hop_wifi_channel()
         return;
     }
 
-    Serial.print("Switched to channel: ");
-    Serial.println(new_channel);
+    // Serial.print("Switched to channel: ");
+    // Serial.println(new_channel);
 
-    clientsBuffer.printClients();
+    // clientsBuffer.printClients();
 }
 
 void wifi_packet_handler(void *buffer, wifi_promiscuous_pkt_type_t type)
@@ -86,5 +91,9 @@ void wifi_packet_handler(void *buffer, wifi_promiscuous_pkt_type_t type)
     uint64_t macHash = hash_64_fnv1a(src_mac, 6);
     // delete the stack declared macStr to save memory, we only need the hash for tracking
     memset(macStr, 0, sizeof(macStr));
-    clientsBuffer.addClient(macHash);
+
+    if (g_clientsBuffer)
+    {
+        g_clientsBuffer->addClient(macHash);
+    }
 }
