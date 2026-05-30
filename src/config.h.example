@@ -1,0 +1,8 @@
+#pragma once
+
+#define WIFI_SSID "SSID"
+#define WIFI_PASSWORD "PASSWORD"
+#define SWEEPS_COUNT 20
+#define CHANNEL_SCAN_TIME_MS 200
+#define MINIMAL_ENCOUNTER_COUNT 3
+#define SERVER_URL "http://example.com/api/upload"

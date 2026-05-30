@@ -5,15 +5,14 @@
  */
 #include "WiFi.h"
 #include <map>
-#include <shared_mutex>
-#include <mutex>
 #include <wifi_functions.h>
 #include <wifi_buffer/wifi_buffer.h>
+#include "config.h"
 
-const char *ssid = "Rzeznia nr 7";
-const char *password = "TVGRWUD57DJF";
-const uint8_t NUMBER_OF_SWEEPS = 13;
-const unsigned long CHANNEL_SCAN_TIME = 250;
+const char *ssid = WIFI_SSID;
+const char *password = WIFI_PASSWORD;
+const uint8_t NUMBER_OF_SWEEPS = SWEEPS_COUNT;
+const unsigned long CHANNEL_SCAN_TIME = CHANNEL_SCAN_TIME_MS;
 
 ClientsBuffer clientsBuffer;
 
@@ -57,7 +56,7 @@ void loop()
         }
     }
 
-    Serial.println("Filtered clients:");
+    Serial.println("\nFiltered clients:");
     for (const auto &[mac, count] : clientsBuffer.getFilteredClients(3))
     {
         Serial.print(mac);

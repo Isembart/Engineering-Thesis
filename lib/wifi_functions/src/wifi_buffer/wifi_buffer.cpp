@@ -1,16 +1,17 @@
 #include "wifi_buffer.h"
 #include <HardwareSerial.h>
 
-void ClientsBuffer::addClient(const uint64_t &macAddress)
+void ClientsBuffer::addClient(const MAC_TYPE &macAddress)
 {
     std::unique_lock lock(mutex);
     clients[macAddress]++;
 }
 
-std::map<uint64_t, int> ClientsBuffer::getFilteredClients(uint8_t minEncounterCount)
+std::map<MAC_TYPE, int> ClientsBuffer::getFilteredClients(uint8_t minEncounterCount)
 {
     std::unique_lock lock(mutex);
-    std::map<uint64_t, int> filteredClients;
+    // std::map<uint64_t, int> filteredClients;
+    std::map<MAC_TYPE, int> filteredClients;
     for (const auto &[mac, count] : clients)
     {
         if (count >= minEncounterCount)

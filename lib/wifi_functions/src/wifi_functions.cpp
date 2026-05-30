@@ -88,12 +88,13 @@ void wifi_packet_handler(void *buffer, wifi_promiscuous_pkt_type_t type)
     sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X",
             src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5]);
 
-    uint64_t macHash = hash_64_fnv1a(src_mac, 6);
+    // uint64_t macHash = hash_64_fnv1a(src_mac, 6);
     // delete the stack declared macStr to save memory, we only need the hash for tracking
-    memset(macStr, 0, sizeof(macStr));
+    // memset(macStr, 0, sizeof(macStr));
 
     if (g_clientsBuffer)
     {
-        g_clientsBuffer->addClient(macHash);
+        // g_clientsBuffer->addClient(macHash);
+        g_clientsBuffer->addClient(String(macStr));
     }
 }
