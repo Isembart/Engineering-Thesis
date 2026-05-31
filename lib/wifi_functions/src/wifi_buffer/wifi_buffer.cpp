@@ -22,12 +22,19 @@ std::map<MAC_TYPE, int> ClientsBuffer::getFilteredClients(uint8_t minEncounterCo
     return filteredClients;
 }
 
+void ClientsBuffer::clear()
+{
+    std::unique_lock lock(mutex);
+    clients.clear();
+}
+
 void ClientsBuffer::printClients()
 {
     std::shared_lock lock(mutex);
     for (const auto &[mac, count] : clients)
     {
-        Serial.print(mac);
+        Serial.print(mac, HEX);
+        // Serial.print(mac); //for string type
         Serial.print(": ");
         Serial.println(count);
     }

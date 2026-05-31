@@ -1,8 +1,15 @@
 #pragma once
 
-#define WIFI_SSID "SSID"
-#define WIFI_PASSWORD "PASSWORD"
-#define SWEEPS_COUNT 20
+#define PEAP false
+#define PEAP_IDENTITY "peap@peap.com"
+#define PEAP_USERNAME "peap@peap.com"
+#define PEAP_PASSWORD "password1234"
+
+#define WIFI_SSID "Wifi SSID"
+#define WIFI_PASSWORD "WIFI_PASSWORD1234"
+#define SCANS_PER_SEND 1
+#define WIFI_SCAN_TIME_S 40
+#define BLUETOOTH_SCAN_TIME_S 12
 #define CHANNEL_SCAN_TIME_MS 200
-#define MINIMAL_ENCOUNTER_COUNT 3
-#define SERVER_URL "http://example.com/api/upload"
+#define MINIMAL_ENCOUNTER_COUNT 2
+#define SERVER_ENDPOINT "http://192.168.68.55:3000/upload-board-data"
