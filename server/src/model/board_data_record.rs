@@ -10,7 +10,7 @@ pub struct Model {
     #[sea_orm(belongs_to, from = "board_id", to = "board_mac")]
     pub board: HasOne<super::board::Entity>,
     #[sea_orm(primary_key)]
-    pub timestamp: DateTime,
+    pub timestamp: DateTimeWithTimeZone,
     pub clients_count: i32,
 }
 
@@ -21,7 +21,7 @@ impl ActiveModelBehavior for ActiveModel {}
 
 pub async fn add_board_data_record(
     board_id: i64,
-    timestamp: DateTime,
+    timestamp: DateTimeWithTimeZone,
     clients_count: i32,
     db: &DatabaseConnection,
 ) -> Result<Model, sea_orm::DbErr> {
@@ -47,8 +47,8 @@ pub async fn get_board_data_records_for_board(
 
 pub async fn get_board_data_records_for_board_in_time_range(
     board_id: i64,
-    start: DateTime,
-    end: DateTime,
+    start: DateTimeWithTimeZone,
+    end: DateTimeWithTimeZone,
     db: &DatabaseConnection,
 ) -> Result<Vec<Model>, sea_orm::DbErr> {
     Entity::find()

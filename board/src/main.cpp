@@ -20,11 +20,12 @@ void setup()
 {
     pinMode(LED_BUILTIN, OUTPUT);
     Serial.begin(115200);
-    while (!Serial)
-    {
-        delay(500);
-        digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-    }
+    delay(1000);
+    // while (!Serial)
+    // {
+    //     delay(500);
+    //     digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+    // }
     Serial.println("Serial connected");
 
     init_wifi_sniffer(&clientsBuffer);
