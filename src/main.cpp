@@ -27,20 +27,6 @@ void setup()
     }
     Serial.println("Serial connected");
 
-    // // Set WiFi to station mode and disconnect from an AP if it was previously connected
-    // WiFi.mode(WIFI_STA);
-    // WiFi.disconnect();
-    // WiFi.begin("eduroam", WPA2_AUTH_PEAP, "***REMOVED***", "***REMOVED***", "***REMOVED***");
-    // // WiFi.begin(ssid, password);
-    // Serial.print(F("Connecting to WiFi .."));
-    // while (WiFi.status() != WL_CONNECTED)
-    // {
-    //     digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-    //     delay(100);
-    // }
-    // Serial.print(F("connected to "));
-    // Serial.println(ssid);
-
     init_wifi_sniffer(&clientsBuffer);
     Serial.println("Promiscuous sniffer started");
 }
