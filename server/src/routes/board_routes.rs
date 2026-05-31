@@ -21,20 +21,16 @@ pub async fn add_board(
     State(pool): State<DbPool>,
     Json(payload): Json<AddBoardRequest>,
 ) -> Result<Json<board::Model>, AppError> {
-    match board::add_board(payload.mac_address, payload.name, &pool).await {
-        Ok(board) => Ok(Json(board)),
-        Err(e) => Err(AppError::Internal(e.to_string())),
-    }
+    let new_board = board::add_board(payload.mac_address, payload.name, &pool).await?;
+    Ok(Json(new_board))
 }
 
 pub async fn rename_board(
     State(pool): State<DbPool>,
     Json(payload): Json<AddBoardRequest>,
 ) -> Result<Json<board::Model>, AppError> {
-    match board::rename_board(payload.mac_address, payload.name, &pool).await {
-        Ok(board) => Ok(Json(board)),
-        Err(e) => Err(AppError::Internal(e.to_string())),
-    }
+    let renamed_board = board::rename_board(payload.mac_address, payload.name, &pool).await?;
+    Ok(Json(renamed_board))
 }
 
 #[derive(Deserialize)]
@@ -47,29 +43,26 @@ pub async fn upload_board_data(
     State(pool): State<DbPool>,
     Json(payload): Json<UploadBoardDataRequest>,
 ) -> Result<Json<board_data_record::Model>, AppError> {
-    // if the board doesnt exist, create it with null name
-    match board::get_board_by_mac(payload.mac_address, &pool).await? {
+    let board = board::get_board_by_mac(payload.mac_address, &pool).await?;
+    match board {
         Some(_board) => {}
         None => {
-            //board doesn't exist, create it with null name
-            board::add_board(payload.mac_address, String::new(), &pool).await?;
+            board::add_board(payload.mac_address, String::new(), &pool)
+                .await
+                .map_err(|e| AppError::Internal(format!("{:?}", e)))?;
         }
     };
 
-    //upload the data
     let timestamp = chrono::Utc::now().naive_utc();
 
-    match board_data_record::add_board_data_record(
+    let board_data_record = board_data_record::add_board_data_record(
         payload.mac_address,
         timestamp,
         payload.clients_count,
         &pool,
     )
-    .await
-    {
-        Ok(board_data_record) => Ok(Json(board_data_record)),
-        Err(err) => Err(AppError::Internal(err.to_string())),
-    }
+    .await?;
+    Ok(Json(board_data_record))
 }
 
 #[derive(Deserialize)]
@@ -83,7 +76,6 @@ pub async fn get_board_data(
     State(pool): State<DbPool>,
     Query(payload): Query<GetBoardDataRequest>,
 ) -> Result<Json<Vec<board_data_record::Model>>, AppError> {
-    //if the timeRange is not provided, get all records for the board
     let records = if payload.start.is_none() || payload.end.is_none() {
         board_data_record::get_board_data_records_for_board(payload.mac_address, &pool).await?
     } else {
@@ -100,24 +92,23 @@ pub async fn get_board_data(
 }
 
 #[derive(Deserialize)]
-pub struct GetBoardNameQuery {
+pub struct GetBoardQuery {
     pub mac_address: i64,
 }
-pub async fn get_board_name(
+
+pub async fn get_board(
     State(pool): State<DbPool>,
-    Query(query): Query<GetBoardNameQuery>,
-) -> Result<Json<Option<String>>, AppError> {
+    Query(query): Query<GetBoardQuery>,
+) -> Result<Json<board::Model>, AppError> {
     match board::get_board_by_mac(query.mac_address, &pool).await? {
-        Some(board) => Ok(Json(Some(board.name))),
-        None => Ok(Json(None)),
+        Some(board) => Ok(Json(board)),
+        None => Err(AppError::NotFound),
     }
 }
 
 pub async fn get_all_boards(
     State(pool): State<DbPool>,
 ) -> Result<Json<Vec<board::Model>>, AppError> {
-    match board::get_all_boards(&pool).await {
-        Ok(boards) => Ok(Json(boards)),
-        Err(e) => Err(AppError::Internal(e.to_string())),
-    }
+    let boards = board::get_all_boards(&pool).await?;
+    Ok(Json(boards))
 }

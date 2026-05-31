@@ -14,9 +14,15 @@ pub enum AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, error_message) = match self {
-            AppError::NotFound => (StatusCode::NOT_FOUND, "Not found".to_string()),
-            AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+        let (status, error_message) = match &self {
+            AppError::NotFound => {
+                eprintln!("AppError: NotFound");
+                (StatusCode::NOT_FOUND, "Not found".to_string())
+            }
+            AppError::Internal(msg) => {
+                eprintln!("AppError Internal: {}", msg);
+                (StatusCode::INTERNAL_SERVER_ERROR, msg.clone())
+            }
         };
 
         let body = Json(json!({

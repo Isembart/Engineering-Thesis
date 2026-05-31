@@ -1,4 +1,4 @@
-use sea_orm::{entity::prelude::*, ActiveValue::Set};
+use sea_orm::{entity::prelude::*, ActiveValue::Set, QueryOrder};
 use serde::Serialize;
 
 #[sea_orm::model]
@@ -40,6 +40,7 @@ pub async fn get_board_data_records_for_board(
 ) -> Result<Vec<Model>, sea_orm::DbErr> {
     Entity::find()
         .filter(Column::BoardId.eq(board_id))
+        .order_by_asc(Column::Timestamp)
         .all(db)
         .await
 }
@@ -54,6 +55,7 @@ pub async fn get_board_data_records_for_board_in_time_range(
         .filter(Column::BoardId.eq(board_id))
         .filter(Column::Timestamp.gte(start))
         .filter(Column::Timestamp.lte(end))
+        .order_by_asc(Column::Timestamp)
         .all(db)
         .await
 }
