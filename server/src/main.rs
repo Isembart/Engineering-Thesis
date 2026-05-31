@@ -23,8 +23,8 @@ async fn main() {
     // Provide the pool via `with_state` instead of `Extension` to act as typed global state
     let app = routes::router().with_state(pool.clone());
 
-    let addr = "0.0.0.0:3000";
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    println!("Server running at http://{}", addr);
+    let addr = std::env::var("SERVER_ADDRESS").unwrap_or_else(|_| "0.0.0.0:3000".into());
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    println!("Server running at http://{}", &addr);
     axum::serve(listener, app).await.unwrap();
 }
