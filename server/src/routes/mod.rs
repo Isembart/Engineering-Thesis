@@ -15,4 +15,5 @@ pub fn router() -> Router<DbPool> {
         .route("/upload-board-data", post(board_routes::upload_board_data))
         .route("/get-board-data", get(board_routes::get_board_data))
         .route("/get-board-name", get(board_routes::get_board_name))
+        .route("/get-all-boards", get(board_routes::get_all_boards))
 }

@@ -10,7 +10,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sea-orm = { version = "2.0.0-rc.38", features = [
   "sqlx-sqlite",
-  "runtime-tokio-native-tls",
+  "runtime-tokio-rustls",
   "schema-sync",
   "entity-registry",
 ] }

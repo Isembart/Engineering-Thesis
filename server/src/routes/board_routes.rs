@@ -112,3 +112,12 @@ pub async fn get_board_name(
         None => Ok(Json(None)),
     }
 }
+
+pub async fn get_all_boards(
+    State(pool): State<DbPool>,
+) -> Result<Json<Vec<board::Model>>, AppError> {
+    match board::get_all_boards(&pool).await {
+        Ok(boards) => Ok(Json(boards)),
+        Err(e) => Err(AppError::Internal(e.to_string())),
+    }
+}

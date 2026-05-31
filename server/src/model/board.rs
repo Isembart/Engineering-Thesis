@@ -48,6 +48,10 @@ pub async fn rename_board(
     board.update(db).await
 }
 
+pub async fn get_all_boards(db: &DatabaseConnection) -> Result<Vec<Board>, sea_orm::DbErr> {
+    Entity::find().all(db).await
+}
+
 pub async fn get_board_by_mac(
     mac_address: i64,
     db: &DatabaseConnection,
