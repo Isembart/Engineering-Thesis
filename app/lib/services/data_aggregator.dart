@@ -14,10 +14,10 @@ class AggregatedBucket {
 
 class DataAggregator {
   /// Aggregates records into fixed 15-minute intervals.
-  /// (e.g., 12:00-12:15, 12:15-12:30).
-  static List<AggregatedBucket> aggregateToFixed15MinBuckets(List<BoardDataRecord> records) {
-    if (records.isEmpty) return [];
-
+  /// Generates a bucket for every interval between start and end, padding missing data with 0.
+  static List<AggregatedBucket> aggregateToFixed15MinBuckets(
+      List<BoardDataRecord> records, DateTime start, DateTime end) {
+    
     Map<DateTime, List<int>> buckets = {};
 
     for (var record in records) {
@@ -35,17 +35,30 @@ class DataAggregator {
     }
 
     List<AggregatedBucket> result = [];
-    buckets.forEach((startTime, counts) {
-      double avg = counts.reduce((a, b) => a + b) / counts.length;
-      result.add(AggregatedBucket(
-        startTime: startTime,
-        endTime: startTime.add(const Duration(minutes: 15)),
-        averageClients: avg,
-      ));
-    });
+    
+    // Normalize start time to the nearest 15-min boundary
+    DateTime current = DateTime(start.year, start.month, start.day, start.hour, (start.minute ~/ 15) * 15);
+    
+    while (current.isBefore(end)) {
+      if (buckets.containsKey(current)) {
+        final counts = buckets[current]!;
+        double avg = counts.reduce((a, b) => a + b) / counts.length;
+        result.add(AggregatedBucket(
+          startTime: current,
+          endTime: current.add(const Duration(minutes: 15)),
+          averageClients: avg,
+        ));
+      } else {
+        // Pad empty intervals with 0
+        result.add(AggregatedBucket(
+          startTime: current,
+          endTime: current.add(const Duration(minutes: 15)),
+          averageClients: 0.0,
+        ));
+      }
+      current = current.add(const Duration(minutes: 15));
+    }
 
-    // Sort by time ascending
-    result.sort((a, b) => a.startTime.compareTo(b.startTime));
     return result;
   }
 

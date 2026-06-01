@@ -21,6 +21,8 @@ class _BoardCardState extends State<BoardCard> {
   bool _isLoading = true;
   double _currentCrowd = 0;
   List<BoardDataRecord> _recentRecords = [];
+  DateTime? _graphStart;
+  DateTime? _graphEnd;
 
   @override
   void initState() {
@@ -45,6 +47,8 @@ class _BoardCardState extends State<BoardCard> {
         setState(() {
           _recentRecords = records;
           _currentCrowd = current;
+          _graphStart = start;
+          _graphEnd = now;
           _isLoading = false;
         });
       }
@@ -126,7 +130,8 @@ class _BoardCardState extends State<BoardCard> {
   }
 
   Widget _buildMiniGraph() {
-    final buckets = DataAggregator.aggregateToFixed15MinBuckets(_recentRecords);
+    if (_graphStart == null || _graphEnd == null) return const SizedBox.shrink();
+    final buckets = DataAggregator.aggregateToFixed15MinBuckets(_recentRecords, _graphStart!, _graphEnd!);
     if (buckets.isEmpty) return const SizedBox.shrink();
 
     return LineChart(
