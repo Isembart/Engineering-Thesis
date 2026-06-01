@@ -87,6 +87,11 @@ void wifi_packet_handler(void *buffer, wifi_promiscuous_pkt_type_t type)
         return; // ignore non-management frames
     }
 
+    if (pkt->rx_ctrl.rssi < -75)
+    {
+        return; // ignore weak signals to reduce noise
+    }
+
     uint8_t *payload = pkt->payload;
     // Frame Control: first byte holds subtype (high 4 bits) and type (low 2 bits of next nibble)
     uint8_t fc0 = payload[0];

@@ -1,5 +1,7 @@
 #pragma once
 
+#define EXTERNAL_ANTENNA true
+
 #define PEAP false
 #define PEAP_IDENTITY "peap@peap.com"
 #define PEAP_USERNAME "peap@peap.com"

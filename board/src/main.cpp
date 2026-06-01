@@ -28,6 +28,12 @@ void setup()
     // }
     Serial.println("Serial connected");
 
+    if (EXTERNAL_ANTENNA)
+    {
+        digitalWrite(14, HIGH); // Set GPIO14 high to use the external antenna
+        Serial.println("External antenna enabled");
+    }
+
     init_wifi_sniffer(&clientsBuffer);
     Serial.println("Promiscuous sniffer started");
 }
