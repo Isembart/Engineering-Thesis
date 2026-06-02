@@ -26,6 +26,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
   List<AggregatedBucket> _buckets = [];
   late String _boardName;
   Timeframe _selectedTimeframe = Timeframe.last24Hours;
+  int _selectedBucketSize = 15;
   DateTime? _customDate;
 
   @override
@@ -70,9 +71,10 @@ class _DetailsScreenState extends State<DetailsScreen> {
         widget.board.boardMac,
         start: start,
         end: end,
+        bucketSizeMinutes: _selectedBucketSize,
       );
 
-      final buckets = DataAggregator.aggregateToFixed15MinBuckets(records, start, end);
+      final buckets = DataAggregator.aggregateToFixedBuckets(records, start, end, _selectedBucketSize);
 
       if (mounted) {
         setState(() {
@@ -238,25 +240,49 @@ class _DetailsScreenState extends State<DetailsScreen> {
                   color: Colors.black87,
                 ),
               ),
-              DropdownButton<Timeframe>(
-                value: _selectedTimeframe,
-                items: const [
-                  DropdownMenuItem(value: Timeframe.last3Hours, child: Text('Last 3h')),
-                  DropdownMenuItem(value: Timeframe.last24Hours, child: Text('Last 24h')),
-                  DropdownMenuItem(value: Timeframe.last7Days, child: Text('7 Days')),
-                  DropdownMenuItem(value: Timeframe.customDate, child: Text('Custom Day')),
+              Row(
+                children: [
+                  DropdownButton<int>(
+                    value: _selectedBucketSize,
+                    items: const [
+                      DropdownMenuItem(value: 15, child: Text('15m')),
+                      DropdownMenuItem(value: 30, child: Text('30m')),
+                      DropdownMenuItem(value: 60, child: Text('1h')),
+                      DropdownMenuItem(value: 240, child: Text('4h')),
+                      DropdownMenuItem(value: 1440, child: Text('1d')),
+                      DropdownMenuItem(value: 10080, child: Text('1w')),
+                    ],
+                    onChanged: (int? newValue) {
+                      if (newValue != null) {
+                        setState(() {
+                          _selectedBucketSize = newValue;
+                        });
+                        _loadData();
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  DropdownButton<Timeframe>(
+                    value: _selectedTimeframe,
+                    items: const [
+                      DropdownMenuItem(value: Timeframe.last3Hours, child: Text('Last 3h')),
+                      DropdownMenuItem(value: Timeframe.last24Hours, child: Text('Last 24h')),
+                      DropdownMenuItem(value: Timeframe.last7Days, child: Text('7 Days')),
+                      DropdownMenuItem(value: Timeframe.customDate, child: Text('Custom')),
+                    ],
+                    onChanged: (Timeframe? newValue) {
+                      if (newValue == null) return;
+                      if (newValue == Timeframe.customDate) {
+                        _selectCustomDate();
+                      } else {
+                        setState(() {
+                          _selectedTimeframe = newValue;
+                        });
+                        _loadData();
+                      }
+                    },
+                  ),
                 ],
-                onChanged: (Timeframe? newValue) {
-                  if (newValue == null) return;
-                  if (newValue == Timeframe.customDate) {
-                    _selectCustomDate();
-                  } else {
-                    setState(() {
-                      _selectedTimeframe = newValue;
-                    });
-                    _loadData();
-                  }
-                },
               ),
             ],
           ),

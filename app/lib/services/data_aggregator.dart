@@ -13,31 +13,30 @@ class AggregatedBucket {
 }
 
 class DataAggregator {
-  /// Aggregates records into fixed 15-minute intervals.
+  /// Aggregates records into fixed intervals.
   /// Generates a bucket for every interval between start and end, padding missing data with 0.
-  static List<AggregatedBucket> aggregateToFixed15MinBuckets(
-      List<BoardDataRecord> records, DateTime start, DateTime end) {
+  static List<AggregatedBucket> aggregateToFixedBuckets(
+      List<BoardDataRecord> records, DateTime start, DateTime end, int bucketSizeMinutes) {
     
     Map<DateTime, List<int>> buckets = {};
 
     for (var record in records) {
-      // Find the start of the 15-minute bucket
-      int minuteBucket = (record.timestamp.minute ~/ 15) * 15;
-      DateTime bucketStart = DateTime(
-        record.timestamp.year,
-        record.timestamp.month,
-        record.timestamp.day,
-        record.timestamp.hour,
-        minuteBucket,
-      );
-
-      buckets.putIfAbsent(bucketStart, () => []).add(record.clientsCount);
+      // The backend already aggregates and returns timestamps exactly on the bucket boundary.
+      // However, we still group by exact timestamp to pad empty gaps.
+      buckets.putIfAbsent(record.timestamp, () => []).add(record.clientsCount);
     }
 
     List<AggregatedBucket> result = [];
     
-    // Normalize start time to the nearest 15-min boundary
-    DateTime current = DateTime(start.year, start.month, start.day, start.hour, (start.minute ~/ 15) * 15);
+    // Normalize start time to the nearest boundary.
+    // To handle larger than 60 mins (e.g. 1 day), we calculate by epoch.
+    int startEpoch = start.millisecondsSinceEpoch;
+    int bucketMs = bucketSizeMinutes * 60 * 1000;
+    int normalizedStartMs = (startEpoch ~/ bucketMs) * bucketMs;
+    DateTime current = DateTime.fromMillisecondsSinceEpoch(normalizedStartMs, isUtc: start.isUtc).toLocal();
+    
+    // If the original logic for minute boundary is preferred:
+    // This simple normalization works perfectly for minutes, hours, and up to days.
     
     while (current.isBefore(end)) {
       if (buckets.containsKey(current)) {
@@ -45,18 +44,18 @@ class DataAggregator {
         double avg = counts.reduce((a, b) => a + b) / counts.length;
         result.add(AggregatedBucket(
           startTime: current,
-          endTime: current.add(const Duration(minutes: 15)),
+          endTime: current.add(Duration(minutes: bucketSizeMinutes)),
           averageClients: avg,
         ));
       } else {
         // Pad empty intervals with 0
         result.add(AggregatedBucket(
           startTime: current,
-          endTime: current.add(const Duration(minutes: 15)),
+          endTime: current.add(Duration(minutes: bucketSizeMinutes)),
           averageClients: 0.0,
         ));
       }
-      current = current.add(const Duration(minutes: 15));
+      current = current.add(Duration(minutes: bucketSizeMinutes));
     }
 
     return result;

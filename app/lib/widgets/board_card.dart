@@ -39,6 +39,7 @@ class _BoardCardState extends State<BoardCard> {
         widget.board.boardMac,
         start: start,
         end: now,
+        bucketSizeMinutes: 15,
       );
 
       final current = DataAggregator.getCurrentCrowdLevel(records, now);
@@ -131,7 +132,7 @@ class _BoardCardState extends State<BoardCard> {
 
   Widget _buildMiniGraph() {
     if (_graphStart == null || _graphEnd == null) return const SizedBox.shrink();
-    final buckets = DataAggregator.aggregateToFixed15MinBuckets(_recentRecords, _graphStart!, _graphEnd!);
+    final buckets = DataAggregator.aggregateToFixedBuckets(_recentRecords, _graphStart!, _graphEnd!, 15);
     if (buckets.isEmpty) return const SizedBox.shrink();
 
     return LineChart(

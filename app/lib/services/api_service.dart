@@ -37,12 +37,13 @@ class ApiService {
     return dt.toUtc().toIso8601String();
   }
 
-  Future<List<BoardDataRecord>> getBoardData(int macAddress, {DateTime? start, DateTime? end}) async {
+  Future<List<BoardDataRecord>> getBoardData(int macAddress, {DateTime? start, DateTime? end, required int bucketSizeMinutes}) async {
     final baseUrl = await getServerUrl();
     var uri = Uri.parse('$baseUrl/get-board-data').replace(queryParameters: {
       'mac_address': macAddress.toString(),
       if (start != null) 'start': _formatDateTime(start),
       if (end != null) 'end': _formatDateTime(end),
+      'bucket_size_minutes': bucketSizeMinutes.toString(),
     });
 
     final response = await http.get(uri);

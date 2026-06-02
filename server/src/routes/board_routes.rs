@@ -104,7 +104,10 @@ pub async fn get_board(
 ) -> Result<Json<board::Model>, AppError> {
     match board::get_board_by_mac(query.mac_address, &pool).await? {
         Some(board) => Ok(Json(board)),
-        None => Err(AppError::NotFound),
+        None => Err(AppError::NotFound(format!(
+            "Board not found: {}",
+            query.mac_address.to_string()
+        ))),
     }
 }
 
