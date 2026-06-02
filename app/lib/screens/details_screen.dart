@@ -7,7 +7,7 @@ import '../services/api_service.dart';
 import '../services/data_aggregator.dart';
 import '../utils/mac_address_formatter.dart';
 
-enum Timeframe { last3Hours, last24Hours, last7Days, customDate }
+enum Timeframe { last3Hours, fullDay }
 
 class DetailsScreen extends StatefulWidget {
   final Board board;
@@ -25,9 +25,14 @@ class _DetailsScreenState extends State<DetailsScreen> {
   List<BoardDataRecord> _records = [];
   List<AggregatedBucket> _buckets = [];
   late String _boardName;
-  Timeframe _selectedTimeframe = Timeframe.last24Hours;
-  int _selectedBucketSize = 15;
-  DateTime? _customDate;
+  Timeframe _selectedTimeframe = Timeframe.fullDay;
+  DateTime _selectedDate = DateTime.now();
+  double _currentClients = 0.0;
+
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year && date.month == now.month && date.day == now.day;
+  }
 
   @override
   void initState() {
@@ -46,40 +51,42 @@ class _DetailsScreenState extends State<DetailsScreen> {
       final now = DateTime.now();
       DateTime start;
       DateTime end;
+      int bucketSizeMinutes;
 
-      switch (_selectedTimeframe) {
-        case Timeframe.last3Hours:
-          end = now;
-          start = now.subtract(const Duration(hours: 3));
-          break;
-        case Timeframe.last24Hours:
-          end = now;
-          start = now.subtract(const Duration(hours: 24));
-          break;
-        case Timeframe.last7Days:
-          end = now;
-          start = now.subtract(const Duration(days: 7));
-          break;
-        case Timeframe.customDate:
-          final selected = _customDate ?? now;
-          start = DateTime(selected.year, selected.month, selected.day, 0, 0, 0);
-          end = DateTime(selected.year, selected.month, selected.day, 23, 59, 59);
-          break;
+      if (_selectedTimeframe == Timeframe.last3Hours && _isToday(_selectedDate)) {
+        end = now;
+        start = now.subtract(const Duration(hours: 3));
+        bucketSizeMinutes = 15;
+      } else {
+        start = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0, 0);
+        end = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59);
+        bucketSizeMinutes = 60;
       }
 
       final records = await _apiService.getBoardData(
         widget.board.boardMac,
         start: start,
         end: end,
-        bucketSizeMinutes: _selectedBucketSize,
+        bucketSizeMinutes: bucketSizeMinutes,
       );
 
-      final buckets = DataAggregator.aggregateToFixedBuckets(records, start, end, _selectedBucketSize);
+      // Fetch recent records for Current Clients specifically
+      final recentStart = now.subtract(const Duration(minutes: 15));
+      final recentRecords = await _apiService.getBoardData(
+        widget.board.boardMac,
+        start: recentStart,
+        end: now,
+        bucketSizeMinutes: 1,
+      );
+      final currentLevel = DataAggregator.getCurrentCrowdLevel(recentRecords, now);
+
+      final buckets = DataAggregator.aggregateToFixedBuckets(records, start, end, bucketSizeMinutes);
 
       if (mounted) {
         setState(() {
           _records = records;
           _buckets = buckets;
+          _currentClients = currentLevel;
           _isLoading = false;
         });
       }
@@ -96,32 +103,18 @@ class _DetailsScreenState extends State<DetailsScreen> {
   Future<void> _selectCustomDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _customDate ?? DateTime.now(),
+      initialDate: _selectedDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
     if (picked != null) {
       setState(() {
-        _selectedTimeframe = Timeframe.customDate;
-        _customDate = picked;
+        _selectedDate = picked;
+        if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
+          _selectedTimeframe = Timeframe.fullDay;
+        }
       });
       _loadData();
-    }
-  }
-
-  String _getTrendsTitle() {
-    switch (_selectedTimeframe) {
-      case Timeframe.last3Hours:
-        return 'Trends (Last 3h)';
-      case Timeframe.last24Hours:
-        return 'Trends (Last 24h)';
-      case Timeframe.last7Days:
-        return 'Trends (7 Days)';
-      case Timeframe.customDate:
-        if (_customDate != null) {
-          return 'Trends (${DateFormat('MMM d, y').format(_customDate!)})';
-        }
-        return 'Trends (Custom)';
     }
   }
 
@@ -232,9 +225,9 @@ class _DetailsScreenState extends State<DetailsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                _getTrendsTitle(),
-                style: const TextStyle(
+              const Text(
+                'Trends',
+                style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
@@ -242,39 +235,57 @@ class _DetailsScreenState extends State<DetailsScreen> {
               ),
               Row(
                 children: [
-                  DropdownButton<int>(
-                    value: _selectedBucketSize,
-                    items: const [
-                      DropdownMenuItem(value: 15, child: Text('15m')),
-                      DropdownMenuItem(value: 30, child: Text('30m')),
-                      DropdownMenuItem(value: 60, child: Text('1h')),
-                      DropdownMenuItem(value: 240, child: Text('4h')),
-                      DropdownMenuItem(value: 1440, child: Text('1d')),
-                      DropdownMenuItem(value: 10080, child: Text('1w')),
-                    ],
-                    onChanged: (int? newValue) {
-                      if (newValue != null) {
-                        setState(() {
-                          _selectedBucketSize = newValue;
-                        });
-                        _loadData();
-                      }
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                      setState(() {
+                        _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+                        if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
+                          _selectedTimeframe = Timeframe.fullDay;
+                        }
+                      });
+                      _loadData();
                     },
+                  ),
+                  TextButton(
+                    onPressed: _selectCustomDate,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      minimumSize: Size.zero,
+                    ),
+                    child: Text(
+                      _isToday(_selectedDate) ? 'Today' : DateFormat('MMM d').format(_selectedDate),
+                      style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: _isToday(_selectedDate)
+                        ? null
+                        : () {
+                            setState(() {
+                              _selectedDate = _selectedDate.add(const Duration(days: 1));
+                              if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
+                                _selectedTimeframe = Timeframe.fullDay;
+                              }
+                            });
+                            _loadData();
+                          },
                   ),
                   const SizedBox(width: 8),
                   DropdownButton<Timeframe>(
                     value: _selectedTimeframe,
-                    items: const [
-                      DropdownMenuItem(value: Timeframe.last3Hours, child: Text('Last 3h')),
-                      DropdownMenuItem(value: Timeframe.last24Hours, child: Text('Last 24h')),
-                      DropdownMenuItem(value: Timeframe.last7Days, child: Text('7 Days')),
-                      DropdownMenuItem(value: Timeframe.customDate, child: Text('Custom')),
+                    items: [
+                      const DropdownMenuItem(value: Timeframe.fullDay, child: Text('Full Day')),
+                      if (_isToday(_selectedDate))
+                        const DropdownMenuItem(value: Timeframe.last3Hours, child: Text('Last 3h')),
                     ],
                     onChanged: (Timeframe? newValue) {
-                      if (newValue == null) return;
-                      if (newValue == Timeframe.customDate) {
-                        _selectCustomDate();
-                      } else {
+                      if (newValue != null) {
                         setState(() {
                           _selectedTimeframe = newValue;
                         });
@@ -294,8 +305,6 @@ class _DetailsScreenState extends State<DetailsScreen> {
   }
 
   Widget _buildCurrentStatusCard() {
-    final currentLevel = DataAggregator.getCurrentCrowdLevel(_records, DateTime.now());
-    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -320,7 +329,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                currentLevel.toStringAsFixed(1),
+                _currentClients.toStringAsFixed(1),
                 style: const TextStyle(
                   fontSize: 48,
                   fontWeight: FontWeight.bold,
@@ -385,12 +394,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                   }
                   
                   final bucket = _buckets[index];
-                  String label;
-                  if (_selectedTimeframe == Timeframe.last7Days) {
-                    label = DateFormat('MM-dd HH:mm').format(bucket.startTime);
-                  } else {
-                    label = DateFormat('HH:mm').format(bucket.startTime);
-                  }
+                  final label = DateFormat('HH:mm').format(bucket.startTime);
 
                   return Padding(
                     padding: const EdgeInsets.only(top: 8.0),
@@ -430,7 +434,13 @@ class _DetailsScreenState extends State<DetailsScreen> {
           minY: 0,
           lineBarsData: [
             LineChartBarData(
-              spots: _buckets.asMap().entries.map((e) {
+              spots: _buckets.asMap().entries.where((e) {
+                final bucket = e.value;
+                final now = DateTime.now();
+                if (bucket.startTime.isAfter(now)) return false;
+                if (bucket.averageClients == 0.0 && bucket.endTime.isAfter(now)) return false;
+                return true;
+              }).map((e) {
                 return FlSpot(e.key.toDouble(), e.value.averageClients);
               }).toList(),
               isCurved: false,

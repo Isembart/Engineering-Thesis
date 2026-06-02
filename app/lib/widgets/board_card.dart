@@ -42,7 +42,16 @@ class _BoardCardState extends State<BoardCard> {
         bucketSizeMinutes: 15,
       );
 
-      final current = DataAggregator.getCurrentCrowdLevel(records, now);
+      // Fetch high-resolution data for the current level
+      final recentStart = now.subtract(const Duration(minutes: 15));
+      final recentRecords = await _apiService.getBoardData(
+        widget.board.boardMac,
+        start: recentStart,
+        end: now,
+        bucketSizeMinutes: 1,
+      );
+
+      final current = DataAggregator.getCurrentCrowdLevel(recentRecords, now);
 
       if (mounted) {
         setState(() {
@@ -142,7 +151,13 @@ class _BoardCardState extends State<BoardCard> {
         borderData: FlBorderData(show: false),
         lineBarsData: [
           LineChartBarData(
-            spots: buckets.asMap().entries.map((e) {
+            spots: buckets.asMap().entries.where((e) {
+              final bucket = e.value;
+              final now = DateTime.now();
+              if (bucket.startTime.isAfter(now)) return false;
+              if (bucket.averageClients == 0.0 && bucket.endTime.isAfter(now)) return false;
+              return true;
+            }).map((e) {
               return FlSpot(e.key.toDouble(), e.value.averageClients);
             }).toList(),
             isCurved: true,
