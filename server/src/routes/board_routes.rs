@@ -70,27 +70,25 @@ pub struct GetBoardDataRequest {
     pub mac_address: i64,
     pub start: Option<chrono::DateTime<chrono::FixedOffset>>,
     pub end: Option<chrono::DateTime<chrono::FixedOffset>>,
+    pub bucket_size_minutes: u32,
 }
 
 pub async fn get_board_data(
     State(pool): State<DbPool>,
     Query(payload): Query<GetBoardDataRequest>,
 ) -> Result<Json<Vec<board_data_record::Model>>, AppError> {
-    let records = match (payload.start, payload.end) {
-        (Some(start), Some(end)) => {
-            let local_offset = *chrono::Local::now().offset();
-            board_data_record::get_board_data_records_for_board_in_time_range(
-                payload.mac_address,
-                start.with_timezone(&local_offset),
-                end.with_timezone(&local_offset),
-                &pool,
-            )
-            .await?
-        }
-        _ => {
-            board_data_record::get_board_data_records_for_board(payload.mac_address, &pool).await?
-        }
-    };
+    let local_offset = *chrono::Local::now().offset();
+    let start = payload.start.map(|s| s.with_timezone(&local_offset));
+    let end = payload.end.map(|e| e.with_timezone(&local_offset));
+
+    let records = board_data_record::get_board_data_records(
+        payload.mac_address,
+        start,
+        end,
+        payload.bucket_size_minutes,
+        &pool,
+    )
+    .await?;
 
     Ok(Json(records))
 }
