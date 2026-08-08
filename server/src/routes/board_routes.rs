@@ -85,8 +85,18 @@ pub async fn get_board_data(
     let start = payload.start.map(|s| s.with_timezone(&local_offset));
     let end = payload.end.map(|e| e.with_timezone(&local_offset));
 
+    let board = match boards_operations::get_board_by_mac(payload.mac_address, &pool).await? {
+        Some(board) => board,
+        None => {
+            return Err(AppError::NotFound(format!(
+                "Board not found: {}",
+                payload.mac_address.to_string()
+            )))
+        }
+    };
+
     let records = board_data_records_operations::get_board_data_records(
-        payload.mac_address,
+        board.id,
         start,
         end,
         payload.bucket_size_minutes,

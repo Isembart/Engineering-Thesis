@@ -18,7 +18,7 @@ pub async fn add_board_data_record(
 }
 
 pub async fn get_board_data_records(
-    board_id: i64,
+    board_id: i32,
     start: Option<DateTimeWithTimeZone>,
     end: Option<DateTimeWithTimeZone>,
     bucket_size_minutes: u32,
@@ -45,6 +45,7 @@ pub async fn get_board_data_records(
 
     query
         .select_only()
+        .column_as(Expr::cust("MIN(id)"), "id")
         .column(Column::BoardId)
         .column_as(bucket_expr.clone(), "timestamp")
         .column_as(
