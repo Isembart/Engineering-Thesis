@@ -1,6 +1,7 @@
 mod db;
 mod error;
 mod model;
+mod model_operations;
 mod routes;
 
 use axum::http::{header, Method};

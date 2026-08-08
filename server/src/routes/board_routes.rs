@@ -6,7 +6,8 @@ use axum::{
 use crate::{
     db::DbPool,
     error::AppError,
-    model::{board, board_data_record},
+    model::{board_data_records, boards},
+    model_operations::{board_data_records_operations, boards_operations},
 };
 
 use serde::Deserialize;
@@ -20,16 +21,17 @@ pub struct AddBoardRequest {
 pub async fn add_board(
     State(pool): State<DbPool>,
     Json(payload): Json<AddBoardRequest>,
-) -> Result<Json<board::Model>, AppError> {
-    let new_board = board::add_board(payload.mac_address, payload.name, &pool).await?;
+) -> Result<Json<boards::Model>, AppError> {
+    let new_board = boards_operations::add_board(payload.mac_address, payload.name, &pool).await?;
     Ok(Json(new_board))
 }
 
 pub async fn rename_board(
     State(pool): State<DbPool>,
     Json(payload): Json<AddBoardRequest>,
-) -> Result<Json<board::Model>, AppError> {
-    let renamed_board = board::rename_board(payload.mac_address, payload.name, &pool).await?;
+) -> Result<Json<boards::Model>, AppError> {
+    let renamed_board =
+        boards_operations::rename_board(payload.mac_address, payload.name, &pool).await?;
     Ok(Json(renamed_board))
 }
 
@@ -42,21 +44,23 @@ pub struct UploadBoardDataRequest {
 pub async fn upload_board_data(
     State(pool): State<DbPool>,
     Json(payload): Json<UploadBoardDataRequest>,
-) -> Result<Json<board_data_record::Model>, AppError> {
-    let board = board::get_board_by_mac(payload.mac_address, &pool).await?;
-    match board {
-        Some(_board) => {}
-        None => {
-            board::add_board(payload.mac_address, String::new(), &pool)
-                .await
-                .map_err(|e| AppError::Internal(format!("{:?}", e)))?;
-        }
-    };
+) -> Result<Json<board_data_records::Model>, AppError> {
+    // Find the board
+    let board: boards::Model =
+        match boards_operations::get_board_by_mac(payload.mac_address, &pool).await? {
+            Some(_board) => _board,
+            None => {
+                // If the board doesn't exist, create it with an empty name
+                boards_operations::add_board(payload.mac_address, String::new(), &pool)
+                    .await
+                    .map_err(|e| AppError::Internal(format!("{:?}", e)))?
+            }
+        };
 
     let timestamp: sea_orm::prelude::DateTimeWithTimeZone = chrono::Local::now().fixed_offset();
 
-    let board_data_record = board_data_record::add_board_data_record(
-        payload.mac_address,
+    let board_data_record = board_data_records_operations::add_board_data_record(
+        board.id,
         timestamp,
         payload.clients_count,
         &pool,
@@ -76,12 +80,12 @@ pub struct GetBoardDataRequest {
 pub async fn get_board_data(
     State(pool): State<DbPool>,
     Query(payload): Query<GetBoardDataRequest>,
-) -> Result<Json<Vec<board_data_record::Model>>, AppError> {
+) -> Result<Json<Vec<board_data_records::Model>>, AppError> {
     let local_offset = *chrono::Local::now().offset();
     let start = payload.start.map(|s| s.with_timezone(&local_offset));
     let end = payload.end.map(|e| e.with_timezone(&local_offset));
 
-    let records = board_data_record::get_board_data_records(
+    let records = board_data_records_operations::get_board_data_records(
         payload.mac_address,
         start,
         end,
@@ -101,8 +105,8 @@ pub struct GetBoardQuery {
 pub async fn get_board(
     State(pool): State<DbPool>,
     Query(query): Query<GetBoardQuery>,
-) -> Result<Json<board::Model>, AppError> {
-    match board::get_board_by_mac(query.mac_address, &pool).await? {
+) -> Result<Json<boards::Model>, AppError> {
+    match boards_operations::get_board_by_mac(query.mac_address, &pool).await? {
         Some(board) => Ok(Json(board)),
         None => Err(AppError::NotFound(format!(
             "Board not found: {}",
@@ -113,7 +117,7 @@ pub async fn get_board(
 
 pub async fn get_all_boards(
     State(pool): State<DbPool>,
-) -> Result<Json<Vec<board::Model>>, AppError> {
-    let boards = board::get_all_boards(&pool).await?;
+) -> Result<Json<Vec<boards::Model>>, AppError> {
+    let boards = boards_operations::get_all_boards(&pool).await?;
     Ok(Json(boards))
 }

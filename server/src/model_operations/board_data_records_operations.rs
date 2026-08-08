@@ -1,26 +1,9 @@
-use sea_orm::{entity::prelude::*, ActiveValue::Set, QueryOrder, QuerySelect, sea_query::Expr};
-use serde::Serialize;
+use sea_orm::{entity::prelude::*, sea_query::Expr, ActiveValue::Set, QueryOrder, QuerySelect};
 
-#[sea_orm::model]
-#[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize)]
-#[sea_orm(table_name = "board_data_records")]
-pub struct Model {
-    #[sea_orm(primary_key)]
-    pub board_id: i64,
-    #[sea_orm(belongs_to, from = "board_id", to = "board_mac")]
-    pub board: HasOne<super::board::Entity>,
-    #[sea_orm(primary_key)]
-    pub timestamp: DateTimeWithTimeZone,
-    pub clients_count: i32,
-}
-
-// #[derive(Debug, Clone, EnumIter, DeriveRelation)]
-// pub enum Relation {}
-
-impl ActiveModelBehavior for ActiveModel {}
+use crate::model::board_data_records::{ActiveModel, Column, Entity, Model};
 
 pub async fn add_board_data_record(
-    board_id: i64,
+    board_id: i32,
     timestamp: DateTimeWithTimeZone,
     clients_count: i32,
     db: &DatabaseConnection,
@@ -64,7 +47,10 @@ pub async fn get_board_data_records(
         .select_only()
         .column(Column::BoardId)
         .column_as(bucket_expr.clone(), "timestamp")
-        .column_as(Expr::cust("CAST(ROUND(AVG(clients_count)) AS INTEGER)"), "clients_count")
+        .column_as(
+            Expr::cust("CAST(ROUND(AVG(clients_count)) AS INTEGER)"),
+            "clients_count",
+        )
         .group_by(Column::BoardId)
         .group_by(bucket_expr)
         .order_by_asc(Column::Timestamp)

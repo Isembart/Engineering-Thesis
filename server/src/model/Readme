@@ -1,0 +1,2 @@
+BOARDS Struct must have mac address as i64
+Board data record must have timestamp as DateTimeWithTimeZone

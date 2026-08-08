@@ -1,5 +1,4 @@
 mod board_routes;
-// pub mod hello;
 
 use crate::db::DbPool;
 use axum::{

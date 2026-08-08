@@ -1,4 +1,4 @@
-use sea_orm_migration::{prelude::*, schema::*};
+use sea_orm_migration::{prelude::*, schema::*, seaql_migrations::PrimaryKey};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -11,7 +11,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(BoardSettings::Table)
                     .if_not_exists()
-                    .col(integer(BoardSettings::BoardId))
+                    .col(integer(BoardSettings::BoardId).primary_key())
                     .col(integer(BoardSettings::ScansPerSend))
                     .col(integer(BoardSettings::WifiScanTime))
                     .col(integer(BoardSettings::BluetoothScanTime))

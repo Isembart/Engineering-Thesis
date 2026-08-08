@@ -12,8 +12,8 @@ impl MigrationTrait for Migration {
                     .table(Boards::Table)
                     .if_not_exists()
                     .col(pk_auto(Boards::Id))
-                    .col(integer(Boards::BoardMac))
-                    .col(string(Boards::Name))
+                    .col(big_integer(Boards::BoardMac))
+                    .col(string_null(Boards::Name))
                     .to_owned(),
             )
             .await
@@ -30,6 +30,7 @@ impl MigrationTrait for Migration {
 enum Boards {
     Table,
     Id,
+    #[sea_orm(column_type = "BigInteger")]
     BoardMac,
     Name,
 }
