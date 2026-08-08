@@ -7,6 +7,9 @@ use axum::http::{header, Method};
 use dotenv::dotenv;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 
+// MIGRATION
+use migration::{Migrator, MigratorTrait};
+
 #[tokio::main]
 async fn main() {
     dotenv().ok();
@@ -16,11 +19,13 @@ async fn main() {
 
     let pool = db::init_pool(&database_url).await;
 
-    // initialize db schema
-    pool.get_schema_registry("inzynierka_backend::model::*")
-        .sync(&*pool)
-        .await
-        .expect("Cannot synchronize the database schema with entities definition.");
+    match Migrator::up(pool.as_ref(), None).await {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("Migration failed: {}", e);
+            std::process::exit(1);
+        }
+    }
 
     let cors = if let Ok(origins) = std::env::var("CORS_ORIGINS") {
         let origins: Vec<_> = origins
