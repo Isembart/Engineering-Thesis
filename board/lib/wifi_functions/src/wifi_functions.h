@@ -2,8 +2,9 @@
 #include <esp_wifi_types_generic.h>
 
 class ClientsBuffer;
+class BoardSettings;
 
-void init_wifi_sniffer(ClientsBuffer *clientsBuffer);
+void init_wifi_sniffer(ClientsBuffer *clientsBuffer, BoardSettings *boardSettings);
 void hop_wifi_channel();
 bool connect_to_wifi(const char *ssid, const char *password);
 bool connect_to_wifi_peap(const char *ssid, const char *identity, const char *username, const char *password);

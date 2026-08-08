@@ -13,16 +13,19 @@
 #include <stdio.h>
 #include <crypto_functions.h>
 #include <HTTPClient.h>
+#include <board_settings.h>
 
 namespace
 {
     ClientsBuffer *g_clientsBuffer = nullptr;
     bool g_wifiInitialized = false;
+    BoardSettings *g_boardSettings = nullptr;
 }
 
-void init_wifi_sniffer(ClientsBuffer *clientsBuffer)
+void init_wifi_sniffer(ClientsBuffer *clientsBuffer, BoardSettings *boardSettings)
 {
     g_clientsBuffer = clientsBuffer;
+    g_boardSettings = boardSettings;
 
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
@@ -87,7 +90,7 @@ void wifi_packet_handler(void *buffer, wifi_promiscuous_pkt_type_t type)
         return; // ignore non-management frames
     }
 
-    if (pkt->rx_ctrl.rssi < -75)
+    if (pkt->rx_ctrl.rssi < g_boardSettings->minRSSI)
     {
         return; // ignore weak signals to reduce noise
     }
@@ -125,12 +128,14 @@ bool connect_to_wifi(const char *ssid, const char *password)
     esp_wifi_set_promiscuous_rx_cb(NULL);
     WiFi.disconnect(false);
     WiFi.mode(WIFI_STA);
+
     Serial.print(F("Connecting to WiFi .."));
-    WiFi.begin(ssid, password);
+
+    WiFi.begin(ssid, password, 0, nullptr, true); // last parameter is to enable fast reconnection
     int attempts = 0;
     while (WiFi.status() != WL_CONNECTED && attempts < 20)
     {
-        delay(500);
+        delay(1000);
         Serial.print(".");
         attempts++;
     }

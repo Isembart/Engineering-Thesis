@@ -8,13 +8,11 @@
 #include <wifi_functions.h>
 #include <wifi_buffer/wifi_buffer.h>
 #include "config.h"
-
-const char *ssid = WIFI_SSID;
-const char *password = WIFI_PASSWORD;
-const unsigned long WIFI_SCAN_TIME = WIFI_SCAN_TIME_S * 1000UL;
-const unsigned long CHANNEL_SCAN_TIME = CHANNEL_SCAN_TIME_MS;
+#include <board_settings.h>
 
 ClientsBuffer clientsBuffer;
+
+BoardSettings boardSettings = BoardSettings::loadDefaultSettings();
 
 void setup()
 {
@@ -28,24 +26,24 @@ void setup()
     // }
     Serial.println("Serial connected");
 
-    if (EXTERNAL_ANTENNA)
+    if (boardSettings.externalAntenna)
     {
         digitalWrite(14, HIGH); // Set GPIO14 high to use the external antenna
         Serial.println("External antenna enabled");
     }
 
-    init_wifi_sniffer(&clientsBuffer);
+    init_wifi_sniffer(&clientsBuffer, &boardSettings);
     Serial.println("Promiscuous sniffer started");
 }
 
 void loop()
 {
-    for (uint8_t scan = 0; scan < SCANS_PER_SEND; ++scan)
+    for (uint8_t scan = 0; scan < boardSettings.ScansPerSend; ++scan)
     {
         const unsigned long wifiScanStart = millis();
-        while (millis() - wifiScanStart < WIFI_SCAN_TIME)
+        while (millis() - wifiScanStart < boardSettings.WifiScanTimeMS)
         {
-            delay(CHANNEL_SCAN_TIME);
+            delay(boardSettings.WifiChannelScanTimeMS);
             hop_wifi_channel();
         }
         Serial.println("WiFi scan completed");
@@ -57,24 +55,24 @@ void loop()
     bool connected = false;
     if (PEAP)
     {
-        connected = connect_to_wifi_peap(WIFI_SSID, PEAP_IDENTITY, PEAP_USERNAME, PEAP_PASSWORD);
+        connected = connect_to_wifi_peap(boardSettings.wifiSSID, boardSettings.peapIdentity, boardSettings.peapUsername, boardSettings.peapPassword);
     }
     else
     {
-        connected = connect_to_wifi(WIFI_SSID, WIFI_PASSWORD);
+        connected = connect_to_wifi(boardSettings.wifiSSID, boardSettings.wifiPassword);
     }
 
-    const auto reportedDevices = clientsBuffer.getFilteredClients(MINIMAL_ENCOUNTER_COUNT).size();
+    const auto reportedDevices = clientsBuffer.getFilteredClients(boardSettings.MinimalEncounterCount).size();
 
     if (!connected)
     {
         Serial.println("Skipping upload because WiFi is not connected");
         WiFi.disconnect();
-        init_wifi_sniffer(&clientsBuffer);
+        init_wifi_sniffer(&clientsBuffer, &boardSettings);
         return;
     }
 
-    if (send_data_to_server(SERVER_ENDPOINT, clientsBuffer))
+    if (send_data_to_server(boardSettings.ServerEndpoint, clientsBuffer))
     {
         Serial.print("Reported devices: ");
         Serial.println(reportedDevices);
@@ -86,7 +84,7 @@ void loop()
     }
 
     WiFi.disconnect();
-    init_wifi_sniffer(&clientsBuffer);
+    init_wifi_sniffer(&clientsBuffer, &boardSettings);
 
     // Serial.println("\nFiltered clients:");
     // for (const auto &[mac, count] : clientsBuffer.getFilteredClients(3))

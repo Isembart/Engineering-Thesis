@@ -1,0 +1,21 @@
+{
+  "folders": [
+      {
+          "name": "Server",
+          "path": "server"
+      },
+      {
+          "name": "App",
+          "path": "app"
+      },
+      {
+          "name": "Board",
+          "path": "board"
+      }
+  ],
+  "settings": {
+      "files.exclude": {
+          "**/.git": true
+      }
+  }
+}
