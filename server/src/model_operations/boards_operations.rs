@@ -4,7 +4,7 @@ use crate::model::boards;
 
 pub async fn add_board(
     mac_address: i64,
-    name: String,
+    name: Option<String>,
     db: &DatabaseConnection,
 ) -> Result<boards::Model, sea_orm::DbErr> {
     let new_board = boards::ActiveModel {
@@ -29,7 +29,7 @@ pub async fn rename_board(
         })?;
 
     let mut board: boards::ActiveModel = board.into();
-    board.name = Set(new_name);
+    board.name = Set(Some(new_name));
     board.update(db).await
 }
 

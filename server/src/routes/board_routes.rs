@@ -15,7 +15,7 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 pub struct AddBoardRequest {
     pub mac_address: i64,
-    pub name: String,
+    pub name: Option<String>,
 }
 
 pub async fn add_board(
@@ -26,9 +26,15 @@ pub async fn add_board(
     Ok(Json(new_board))
 }
 
+#[derive(Deserialize)]
+pub struct RenameBoardRequest {
+    pub mac_address: i64,
+    pub name: String,
+}
+
 pub async fn rename_board(
     State(pool): State<DbPool>,
-    Json(payload): Json<AddBoardRequest>,
+    Json(payload): Json<RenameBoardRequest>,
 ) -> Result<Json<boards::Model>, AppError> {
     let renamed_board =
         boards_operations::rename_board(payload.mac_address, payload.name, &pool).await?;
@@ -38,7 +44,7 @@ pub async fn rename_board(
 #[derive(Deserialize)]
 pub struct UploadBoardDataRequest {
     pub mac_address: i64,
-    pub clients_count: i32,
+    pub clients_count: i64,
 }
 
 pub async fn upload_board_data(
@@ -51,7 +57,7 @@ pub async fn upload_board_data(
             Some(_board) => _board,
             None => {
                 // If the board doesn't exist, create it with an empty name
-                boards_operations::add_board(payload.mac_address, String::new(), &pool)
+                boards_operations::add_board(payload.mac_address, None, &pool)
                     .await
                     .map_err(|e| AppError::Internal(format!("{:?}", e)))?
             }

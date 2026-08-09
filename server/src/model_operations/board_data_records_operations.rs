@@ -3,9 +3,9 @@ use sea_orm::{entity::prelude::*, sea_query::Expr, ActiveValue::Set, QueryOrder,
 use crate::model::board_data_records::{ActiveModel, Column, Entity, Model};
 
 pub async fn add_board_data_record(
-    board_id: i32,
+    board_id: i64,
     timestamp: DateTimeWithTimeZone,
-    clients_count: i32,
+    clients_count: i64,
     db: &DatabaseConnection,
 ) -> Result<Model, sea_orm::DbErr> {
     let new_record = ActiveModel {
@@ -18,7 +18,7 @@ pub async fn add_board_data_record(
 }
 
 pub async fn get_board_data_records(
-    board_id: i32,
+    board_id: i64,
     start: Option<DateTimeWithTimeZone>,
     end: Option<DateTimeWithTimeZone>,
     bucket_size_minutes: u32,
