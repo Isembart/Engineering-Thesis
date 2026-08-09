@@ -9,6 +9,7 @@ use serde_json::json;
 #[derive(Debug)]
 pub enum AppError {
     NotFound(String),
+    Duplicate(String),
     Internal(String),
 }
 
@@ -22,6 +23,10 @@ impl IntoResponse for AppError {
             AppError::Internal(msg) => {
                 eprintln!("AppError Internal: {}", msg);
                 (StatusCode::INTERNAL_SERVER_ERROR, msg.clone())
+            }
+            AppError::Duplicate(msg) => {
+                eprintln!("AppError Duplicate: {}", msg);
+                (StatusCode::CONFLICT, msg.clone())
             }
         };
 
@@ -37,6 +42,8 @@ impl From<DbErr> for AppError {
     fn from(err: DbErr) -> Self {
         match err {
             DbErr::RecordNotFound(msg) => AppError::NotFound(format!("Record not found: {}", msg)),
+            DbErr::Query(msg) => AppError::Duplicate(format!("Query error: {}", msg)),
+            DbErr::Custom(msg) => AppError::Internal(format!("Custom error: {}", msg)),
             _ => AppError::Internal("Database error".to_string()),
         }
     }
