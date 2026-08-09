@@ -23,7 +23,7 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("fk_board_settings_board_id")
                             .from(BoardSettings::Table, BoardSettings::BoardId)
-                            .to("Boards", "Id")
+                            .to("boards", "id")
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),

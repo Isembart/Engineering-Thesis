@@ -13,13 +13,13 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(pk_auto(BoardDataRecords::Id))
                     .col(integer(BoardDataRecords::BoardId))
-                    .col(date_time(BoardDataRecords::Timestamp))
+                    .col(timestamp_with_time_zone(BoardDataRecords::Timestamp))
                     .col(integer(BoardDataRecords::ClientsCount))
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_board_data_records_board_id")
                             .from(BoardDataRecords::Table, BoardDataRecords::BoardId)
-                            .to("Boards", "Id")
+                            .to("boards", "id")
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
