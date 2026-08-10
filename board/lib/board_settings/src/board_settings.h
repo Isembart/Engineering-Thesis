@@ -1,3 +1,5 @@
+#include <WString.h>
+
 class BoardSettings
 {
 public:
@@ -7,7 +9,7 @@ public:
                   unsigned int wifiChannelScanTime,
                   unsigned int bluetoothChannelScanTime,
                   unsigned int minimalEncounterCount,
-                  const char *serverEndpoint,
+                  String serverEndpoint,
                   bool externalAntenna,
                   const char *wifiSSID,
                   const char *wifiPassword,
@@ -42,7 +44,7 @@ public:
     // Time in milliseconds
     unsigned int BluetoothChannelScanTimeMS;
     unsigned int MinimalEncounterCount;
-    const char *ServerEndpoint;
+    String ServerEndpoint;
     bool externalAntenna;
 
     const char *wifiSSID;

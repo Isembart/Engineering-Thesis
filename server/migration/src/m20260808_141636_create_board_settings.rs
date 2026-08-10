@@ -1,4 +1,4 @@
-use sea_orm_migration::{prelude::*, schema::*, seaql_migrations::PrimaryKey};
+use sea_orm_migration::{prelude::*, schema::*};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -18,6 +18,7 @@ impl MigrationTrait for Migration {
                     .col(integer(BoardSettings::WifiChannelScanTime))
                     .col(integer(BoardSettings::BluetoothChannelScanTime))
                     .col(integer(BoardSettings::MinimalEncounterCount))
+                    .col(integer(BoardSettings::MinRssi))
                     .col(string(BoardSettings::ServerEndpoint))
                     .foreign_key(
                         ForeignKey::create()
@@ -49,4 +50,5 @@ enum BoardSettings {
     BluetoothChannelScanTime,
     MinimalEncounterCount,
     ServerEndpoint,
+    MinRssi,
 }

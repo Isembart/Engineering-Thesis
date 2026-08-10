@@ -1,8 +1,8 @@
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection,
-    DbErr::{self, RecordNotFound},
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, DbErr::RecordNotFound,
     EntityTrait, QueryFilter,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::model::{board_settings, boards};
 
@@ -27,12 +27,39 @@ pub async fn get_settings_by_board_mac(
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct BoardSettingsDTO {
+    pub scans_per_send: i64,
+    pub wifi_scan_time: i64,
+    pub bluetooth_scan_time: i64,
+    pub wifi_channel_scan_time: i64,
+    pub bluetooth_channel_scan_time: i64,
+    pub minimal_encounter_count: i64,
+    pub min_rssi: i64,
+    pub server_endpoint: String,
+}
+
 pub async fn update_board_settings(
-    settings: board_settings::Model,
+    mac_address: i64,
+    settings: BoardSettingsDTO,
     db: &DatabaseConnection,
 ) -> Result<board_settings::Model, sea_orm::DbErr> {
+    let board = match boards::Entity::find()
+        .filter(boards::Column::BoardMac.eq(mac_address))
+        .one(db)
+        .await?
+    {
+        Some(board) => board,
+        None => {
+            return Err(RecordNotFound(format!(
+                "Board with MAC {} not found",
+                mac_address
+            )))
+        }
+    };
+
     if let Some(existing_settings) = board_settings::Entity::find()
-        .filter(board_settings::Column::BoardId.eq(settings.board_id))
+        .filter(board_settings::Column::BoardId.eq(board.id))
         .one(db)
         .await?
     {
@@ -44,26 +71,41 @@ pub async fn update_board_settings(
         active_model.update(db).await
     } else {
         return Err(RecordNotFound(format!(
-            "Board settings for board ID {} not found",
-            settings.board_id
+            "Board settings for board with MAC {} not found",
+            mac_address
         )));
     }
 }
 
 pub async fn insert_board_settings(
-    settings: board_settings::Model,
+    mac_address: i64,
+    settings: BoardSettingsDTO,
     db: &DatabaseConnection,
 ) -> Result<board_settings::Model, sea_orm::DbErr> {
-    if let None = boards::Entity::find()
-        .filter(boards::Column::Id.eq(settings.board_id))
+    let board = match boards::Entity::find()
+        .filter(boards::Column::BoardMac.eq(mac_address))
         .one(db)
         .await?
     {
-        return Err(RecordNotFound(format!(
-            "Board with ID {} not found",
-            settings.board_id
-        )));
-    }
-    let active_model: board_settings::ActiveModel = settings.into();
+        Some(board) => board,
+        None => {
+            return Err(RecordNotFound(format!(
+                "Board with MAC {} not found",
+                mac_address
+            )));
+        }
+    };
+
+    let active_model = board_settings::ActiveModel {
+        board_id: Set(board.id),
+        scans_per_send: Set(settings.scans_per_send),
+        wifi_scan_time: Set(settings.wifi_scan_time),
+        bluetooth_scan_time: Set(settings.bluetooth_scan_time),
+        wifi_channel_scan_time: Set(settings.wifi_channel_scan_time),
+        bluetooth_channel_scan_time: Set(settings.bluetooth_channel_scan_time),
+        minimal_encounter_count: Set(settings.minimal_encounter_count),
+        min_rssi: Set(settings.min_rssi),
+        server_endpoint: Set(settings.server_endpoint),
+    };
     active_model.insert(db).await
 }

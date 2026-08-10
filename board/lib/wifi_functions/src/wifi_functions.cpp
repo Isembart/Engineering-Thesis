@@ -15,11 +15,33 @@
 #include <HTTPClient.h>
 #include <board_settings.h>
 
+#include "../include/ArduinoJson-v7.4.3.h"
+
 namespace
 {
     ClientsBuffer *g_clientsBuffer = nullptr;
     bool g_wifiInitialized = false;
     BoardSettings *g_boardSettings = nullptr;
+}
+
+uint64_t get_mac_address()
+{
+    uint8_t macBytes[6];
+    esp_read_mac(macBytes, ESP_MAC_WIFI_STA);
+
+    uint64_t macAddressValue = 0;
+    for (uint8_t i = 0; i < 6; ++i)
+    {
+        macAddressValue = (macAddressValue << 8) | macBytes[i];
+    }
+    // char macAddress[21];
+    // snprintf(macAddress, sizeof(macAddress), "%llu", (unsigned long long)macAddressValue);
+    return macAddressValue;
+}
+
+String get_mac_address_str()
+{
+    return String((unsigned long long)get_mac_address());
 }
 
 void init_wifi_sniffer(ClientsBuffer *clientsBuffer, BoardSettings *boardSettings)
@@ -180,66 +202,11 @@ bool connect_to_wifi_peap(const char *ssid, const char *identity, const char *us
     return false;
 }
 
-// bool send_data_to_server(const char *url, ClientsBuffer &clientsBuffer)
-// {
-//     const auto filteredClients = clientsBuffer.getFilteredClients(MINIMAL_ENCOUNTER_COUNT);
-//     uint8_t macBytes[6];
-//     esp_read_mac(macBytes, ESP_MAC_WIFI_STA);
-
-//     uint64_t macAddressValue = 0;
-//     for (uint8_t i = 0; i < 6; ++i)
-//     {
-//         macAddressValue = (macAddressValue << 8) | macBytes[i];
-//     }
-
-//     char macAddress[21];
-//     snprintf(macAddress, sizeof(macAddress), "%llu", (unsigned long long)macAddressValue);
-
-//     String jsonBody = String("{\"mac_address\":") + macAddress + String(",\"clients_count\":") + String(filteredClients.size()) + String("}");
-
-//     esp_http_client_config_t config = {
-//         .url = url,
-//         .method = HTTP_METHOD_POST,
-//     };
-
-//     esp_http_client_handle_t client = esp_http_client_init(&config);
-//     if (client == nullptr)
-//     {
-//         Serial.println("Failed to initialize HTTP client");
-//         return false;
-//     }
-
-//     esp_http_client_set_header(client, "Content-Type", "application/json");
-//     esp_http_client_set_post_field(client, jsonBody.c_str(), jsonBody.length());
-
-//     esp_err_t result = esp_http_client_perform(client);
-//     bool success = result == ESP_OK && esp_http_client_get_status_code(client) >= 200 && esp_http_client_get_status_code(client) < 300;
-//     if (!success)
-//     {
-//         Serial.print("Failed to send data to server, err=");
-//         Serial.println((int)result);
-//     }
-
-//     esp_http_client_cleanup(client);
-//     return success;
-// }
-
-bool send_data_to_server(const char *url, ClientsBuffer &clientsBuffer)
+bool send_data_to_server(ClientsBuffer &clientsBuffer)
 {
     const auto filteredClients = clientsBuffer.getFilteredClients(MINIMAL_ENCOUNTER_COUNT);
-    uint8_t macBytes[6];
-    esp_read_mac(macBytes, ESP_MAC_WIFI_STA);
 
-    uint64_t macAddressValue = 0;
-    for (uint8_t i = 0; i < 6; ++i)
-    {
-        macAddressValue = (macAddressValue << 8) | macBytes[i];
-    }
-
-    char macAddress[21];
-    snprintf(macAddress, sizeof(macAddress), "%llu", (unsigned long long)macAddressValue);
-
-    String jsonBody = String("{\"mac_address\":") + macAddress + String(",\"clients_count\":") + String(filteredClients.size()) + String("}");
+    String jsonBody = String("{\"mac_address\":") + get_mac_address_str() + String(",\"clients_count\":") + String(filteredClients.size()) + String("}");
 
     // --- Arduino HTTP Client approach ---
     HTTPClient http;
@@ -247,7 +214,9 @@ bool send_data_to_server(const char *url, ClientsBuffer &clientsBuffer)
     // Increase timeout to 10 seconds for slow PEAP networks
     http.setTimeout(10000);
 
-    if (!http.begin(url))
+    String url = String(g_boardSettings->ServerEndpoint) + "/upload-board-data";
+
+    if (!http.begin(url.c_str()))
     {
         Serial.println("Failed to parse URL");
         return false;
@@ -272,3 +241,119 @@ bool send_data_to_server(const char *url, ClientsBuffer &clientsBuffer)
     http.end();
     return success;
 }
+
+bool send_settings_to_server()
+{
+    HTTPClient http;
+    http.setTimeout(10000);
+
+    Serial.println("mac address str: " + get_mac_address_str());
+
+    String url = String(g_boardSettings->ServerEndpoint) +
+                 "/board-settings" +
+                 "?mac_address=" + get_mac_address_str();
+
+    if (!http.begin(url.c_str()))
+    {
+        Serial.println("Failed to parse URL");
+        return false;
+    }
+
+    http.addHeader("Content-Type", "application/json");
+
+    // serialize the settings to JSON
+    JsonDocument doc;
+    doc["scans_per_send"] = g_boardSettings->ScansPerSend;
+    doc["wifi_scan_time"] = g_boardSettings->WifiScanTimeMS;
+    doc["bluetooth_scan_time"] = g_boardSettings->BluetoothScanTimeMS;
+    doc["wifi_channel_scan_time"] = g_boardSettings->WifiChannelScanTimeMS;
+    doc["bluetooth_channel_scan_time"] = g_boardSettings->BluetoothChannelScanTimeMS;
+    doc["minimal_encounter_count"] = g_boardSettings->MinimalEncounterCount;
+    doc["server_endpoint"] = g_boardSettings->ServerEndpoint;
+    doc["min_rssi"] = g_boardSettings->minRSSI;
+    // Sensitve fields, not supported by backend
+    // doc["externalAntenna"] = g_boardSettings->externalAntenna;
+    // doc["wifiSSID"] = g_boardSettings->wifiSSID;
+    // doc["wifiPassword"] = g_boardSettings->wifiPassword;
+    // doc["peap"] = g_boardSettings->peap;
+    // doc["peapIdentity"] = g_boardSettings->peapIdentity;
+    // doc["peapUsername"] = g_boardSettings->peapUsername;
+    // doc["peapPassword"] = g_boardSettings->peapPassword;
+
+    String jsonBody;
+    serializeJson(doc, jsonBody);
+    int httpResponseCode = http.POST(jsonBody);
+
+    bool success = (httpResponseCode >= 200 && httpResponseCode < 300);
+    if (httpResponseCode == 200)
+    {
+        Serial.print("Settings uploaded successfully");
+        Serial.println(httpResponseCode);
+    }
+    else if (httpResponseCode == 409)
+    {
+        Serial.print("Settings already exist on the server. HTTP Response code: ");
+        Serial.println(httpResponseCode);
+    }
+    else
+    {
+        Serial.print("Failed to send settings to server, HTTP code: ");
+        Serial.println(httpResponseCode);
+    }
+
+    http.end();
+    return success;
+};
+
+bool get_settings_from_server()
+{
+    HTTPClient http;
+    http.setTimeout(10000);
+
+    String url = String(g_boardSettings->ServerEndpoint) +
+                 "/board-settings" +
+                 "?mac_address=" + get_mac_address_str();
+
+    if (!http.begin(url.c_str()))
+    {
+        Serial.println("Failed to parse URL");
+        return false;
+    }
+
+    int httpResponseCode = http.GET();
+
+    bool success = (httpResponseCode >= 200 && httpResponseCode < 300);
+    if (httpResponseCode == 200)
+    {
+        Serial.print("Settings downloaded successfully");
+
+        Serial.println("Applying settings from server...");
+        String payload = http.getString();
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, payload);
+
+        Serial.println("New settings from server:");
+        serializeJsonPretty(doc, Serial);
+        g_boardSettings->ScansPerSend = doc["scans_per_send"] | g_boardSettings->ScansPerSend;
+        g_boardSettings->WifiScanTimeMS = doc["wifi_scan_time"] | g_boardSettings->WifiScanTimeMS;
+        g_boardSettings->BluetoothScanTimeMS = doc["bluetooth_scan_time"] | g_boardSettings->BluetoothScanTimeMS;
+        g_boardSettings->WifiChannelScanTimeMS = doc["wifi_channel_scan_time"] | g_boardSettings->WifiChannelScanTimeMS;
+        g_boardSettings->BluetoothChannelScanTimeMS = doc["bluetooth_channel_scan_time"] | g_boardSettings->BluetoothChannelScanTimeMS;
+        g_boardSettings->MinimalEncounterCount = doc["minimal_encounter_count"] | g_boardSettings->MinimalEncounterCount;
+        g_boardSettings->ServerEndpoint = doc["server_endpoint"] | g_boardSettings->ServerEndpoint;
+        g_boardSettings->minRSSI = doc["min_rssi"] | g_boardSettings->minRSSI;
+    }
+    else if (httpResponseCode == 404)
+    {
+        Serial.print("Settings not found on the server, HTTP Response code: ");
+        Serial.println(httpResponseCode);
+    }
+    else
+    {
+        Serial.print("Failed to download settings from server, HTTP code: ");
+        Serial.println(httpResponseCode);
+    }
+
+    http.end();
+    return success;
+};

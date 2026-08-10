@@ -9,6 +9,7 @@
 #include <wifi_buffer/wifi_buffer.h>
 #include "config.h"
 #include <board_settings.h>
+#include <string.h>
 
 ClientsBuffer clientsBuffer;
 
@@ -71,8 +72,7 @@ void loop()
         init_wifi_sniffer(&clientsBuffer, &boardSettings);
         return;
     }
-
-    if (send_data_to_server(boardSettings.ServerEndpoint, clientsBuffer))
+    if (send_data_to_server(clientsBuffer))
     {
         Serial.print("Reported devices: ");
         Serial.println(reportedDevices);
@@ -82,6 +82,9 @@ void loop()
     {
         Serial.println("Failed to send data to server");
     }
+
+    // send_settings_to_server();
+    get_settings_from_server();
 
     WiFi.disconnect();
     init_wifi_sniffer(&clientsBuffer, &boardSettings);
