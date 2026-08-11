@@ -9,8 +9,9 @@ import '../screens/details_screen.dart';
 
 class BoardCard extends StatefulWidget {
   final Board board;
+  final VoidCallback? onBoardUpdated;
 
-  const BoardCard({Key? key, required this.board}) : super(key: key);
+  const BoardCard({Key? key, required this.board, this.onBoardUpdated}) : super(key: key);
 
   @override
   State<BoardCard> createState() => _BoardCardState();
@@ -77,13 +78,18 @@ class _BoardCardState extends State<BoardCard> {
         : MacAddressFormatter.format(widget.board.boardMac);
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final updated = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
             builder: (context) => DetailsScreen(board: widget.board),
           ),
-        ).then((_) => _loadData()); // Reload when coming back
+        );
+        if (!mounted) return;
+        await _loadData();
+        if (updated == true) {
+          widget.onBoardUpdated?.call();
+        }
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

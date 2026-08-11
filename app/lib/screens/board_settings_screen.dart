@@ -25,7 +25,6 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
   final _bluetoothChannelScanTimeController = TextEditingController();
   final _minimalEncounterCountController = TextEditingController();
   final _minRssiController = TextEditingController();
-  final _serverEndpointController = TextEditingController();
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -46,7 +45,6 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
     _bluetoothChannelScanTimeController.text = settings.bluetoothChannelScanTime.toString();
     _minimalEncounterCountController.text = settings.minimalEncounterCount.toString();
     _minRssiController.text = settings.minRssi.toString();
-    _serverEndpointController.text = settings.serverEndpoint;
   }
 
   Future<void> _loadSettings() async {
@@ -64,8 +62,7 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
         _applySettings(settings);
       } else {
         _exists = false;
-        final serverUrl = await _apiService.getServerUrl();
-        _applySettings(BoardSettings.defaults(serverEndpoint: serverUrl));
+        _applySettings(BoardSettings.defaults());
       }
 
       setState(() => _isLoading = false);
@@ -87,7 +84,6 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
       bluetoothChannelScanTime: int.parse(_bluetoothChannelScanTimeController.text.trim()),
       minimalEncounterCount: int.parse(_minimalEncounterCountController.text.trim()),
       minRssi: int.parse(_minRssiController.text.trim()),
-      serverEndpoint: _serverEndpointController.text.trim(),
     );
   }
 
@@ -132,7 +128,6 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
     _bluetoothChannelScanTimeController.dispose();
     _minimalEncounterCountController.dispose();
     _minRssiController.dispose();
-    _serverEndpointController.dispose();
     super.dispose();
   }
 
@@ -266,17 +261,7 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
             label: 'Min RSSI (dBm)',
             allowNegative: true,
           ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: TextFormField(
-              controller: _serverEndpointController,
-              decoration: _fieldDecoration('Server endpoint'),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) return 'Required';
-                return null;
-              },
-            ),
-          ),
+          const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(

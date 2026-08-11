@@ -24,9 +24,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadBoards();
   }
 
-  Future<void> _loadBoards() async {
+  Future<void> _loadBoards({bool showOverlay = true}) async {
     setState(() {
-      _isLoading = true;
+      if (showOverlay) _isLoading = true;
       _error = null;
     });
 
@@ -48,6 +48,8 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
   }
+
+  Future<void> _refresh() => _loadBoards(showOverlay: false);
 
   void _openSettings() async {
     final changed = await Navigator.push(
@@ -91,32 +93,51 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBody() {
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      return RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            Text(_error!, style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadBoards,
-              child: const Text('Retry'),
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.6,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(_error!, style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadBoards,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       );
     }
 
-    Widget content;
+    final Widget content;
     if (_boards.isEmpty && !_isLoading) {
-      content = const Center(child: Text('No boards found.'));
+      content = ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.6,
+            child: const Center(child: Text('No boards found.')),
+          ),
+        ],
+      );
     } else {
       content = ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(top: 16, bottom: 32),
         itemCount: _boards.length,
         itemBuilder: (context, index) {
           return BoardCard(
             key: ValueKey('${_boards[index].boardMac}_${_lastRefresh.millisecondsSinceEpoch}'),
             board: _boards[index],
+            onBoardUpdated: _loadBoards,
           );
         },
       );
@@ -124,7 +145,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Stack(
       children: [
-        content,
+        RefreshIndicator(
+          onRefresh: _refresh,
+          child: content,
+        ),
         if (_isLoading)
           Container(
             color: Colors.white.withOpacity(0.6), // Dim the background slightly

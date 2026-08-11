@@ -26,6 +26,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
   List<BoardDataRecord> _records = [];
   List<AggregatedBucket> _buckets = [];
   late String _boardName;
+  bool _boardsChanged = false;
   Timeframe _selectedTimeframe = Timeframe.fullDay;
   DateTime _selectedDate = DateTime.now();
   double _currentClients = 0.0;
@@ -42,9 +43,9 @@ class _DetailsScreenState extends State<DetailsScreen> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool showOverlay = true}) async {
     setState(() {
-      _isLoading = true;
+      if (showOverlay) _isLoading = true;
       _error = null;
     });
 
@@ -101,6 +102,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
     }
   }
 
+  Future<void> _refresh() => _loadData(showOverlay: false);
+
   Future<void> _selectCustomDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -149,11 +152,9 @@ class _DetailsScreenState extends State<DetailsScreen> {
       try {
         await _apiService.renameBoard(widget.board.boardMac, newName);
         if (mounted) {
-          // Update the local state so the UI reflects the new name without requiring a full reload from the list
           setState(() {
-            // Note: Since widget.board is final, we create a new one or just rely on a local state variable for the name.
-            // A better way is to update a local _boardName variable. Let's create one.
             _boardName = newName;
+            _boardsChanged = true;
           });
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Board renamed successfully')));
         }
@@ -171,7 +172,13 @@ class _DetailsScreenState extends State<DetailsScreen> {
         ? _boardName 
         : MacAddressFormatter.format(widget.board.boardMac);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.of(context).pop(_boardsChanged);
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -204,6 +211,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
         ],
       ),
       body: _buildBody(),
+    ),
     );
   }
 
@@ -213,106 +221,119 @@ class _DetailsScreenState extends State<DetailsScreen> {
     }
 
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      return RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            Text(_error!, style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadData,
-              child: const Text('Retry'),
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.6,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(_error!, style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadData,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildCurrentStatusCard(),
-          const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Trends',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildCurrentStatusCard(),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Trends',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
                 ),
-              ),
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () {
-                      setState(() {
-                        _selectedDate = _selectedDate.subtract(const Duration(days: 1));
-                        if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
-                          _selectedTimeframe = Timeframe.fullDay;
-                        }
-                      });
-                      _loadData();
-                    },
-                  ),
-                  TextButton(
-                    onPressed: _selectCustomDate,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      minimumSize: Size.zero,
-                    ),
-                    child: Text(
-                      _isToday(_selectedDate) ? 'Today' : DateFormat('MMM d').format(_selectedDate),
-                      style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: _isToday(_selectedDate)
-                        ? null
-                        : () {
-                            setState(() {
-                              _selectedDate = _selectedDate.add(const Duration(days: 1));
-                              if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
-                                _selectedTimeframe = Timeframe.fullDay;
-                              }
-                            });
-                            _loadData();
-                          },
-                  ),
-                  const SizedBox(width: 8),
-                  DropdownButton<Timeframe>(
-                    value: _selectedTimeframe,
-                    items: [
-                      const DropdownMenuItem(value: Timeframe.fullDay, child: Text('Full Day')),
-                      if (_isToday(_selectedDate))
-                        const DropdownMenuItem(value: Timeframe.last3Hours, child: Text('Last 3h')),
-                    ],
-                    onChanged: (Timeframe? newValue) {
-                      if (newValue != null) {
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
                         setState(() {
-                          _selectedTimeframe = newValue;
+                          _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+                          if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
+                            _selectedTimeframe = Timeframe.fullDay;
+                          }
                         });
                         _loadData();
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildChartCard(),
-        ],
+                      },
+                    ),
+                    TextButton(
+                      onPressed: _selectCustomDate,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        minimumSize: Size.zero,
+                      ),
+                      child: Text(
+                        _isToday(_selectedDate) ? 'Today' : DateFormat('MMM d').format(_selectedDate),
+                        style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: _isToday(_selectedDate)
+                          ? null
+                          : () {
+                              setState(() {
+                                _selectedDate = _selectedDate.add(const Duration(days: 1));
+                                if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
+                                  _selectedTimeframe = Timeframe.fullDay;
+                                }
+                              });
+                              _loadData();
+                            },
+                    ),
+                    const SizedBox(width: 8),
+                    DropdownButton<Timeframe>(
+                      value: _selectedTimeframe,
+                      items: [
+                        const DropdownMenuItem(value: Timeframe.fullDay, child: Text('Full Day')),
+                        if (_isToday(_selectedDate))
+                          const DropdownMenuItem(value: Timeframe.last3Hours, child: Text('Last 3h')),
+                      ],
+                      onChanged: (Timeframe? newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            _selectedTimeframe = newValue;
+                          });
+                          _loadData();
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildChartCard(),
+          ],
+        ),
       ),
     );
   }

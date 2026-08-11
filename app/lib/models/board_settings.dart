@@ -7,7 +7,6 @@ class BoardSettings {
   final int bluetoothChannelScanTime;
   final int minimalEncounterCount;
   final int minRssi;
-  final String serverEndpoint;
 
   const BoardSettings({
     this.boardId,
@@ -18,21 +17,18 @@ class BoardSettings {
     required this.bluetoothChannelScanTime,
     required this.minimalEncounterCount,
     required this.minRssi,
-    required this.serverEndpoint,
   });
 
-  /// Defaults from `board/src/config.h.example` (scan times converted to ms).
-  /// [serverEndpoint] should be the Flutter app server URL from Settings.
-  factory BoardSettings.defaults({required String serverEndpoint}) {
-    return BoardSettings(
+  /// Defaults from `board/src/config.h.example`.
+  factory BoardSettings.defaults() {
+    return const BoardSettings(
       scansPerSend: 1,
-      wifiScanTime: 40 * 1000, // WIFI_SCAN_TIME_S
-      bluetoothScanTime: 12 * 1000, // BLUETOOTH_SCAN_TIME_S
+      wifiScanTime: 40 * 1000, // WIFI_SCAN_TIME_MS
+      bluetoothScanTime: 12 * 1000, // BLUETOOTH_SCAN_TIME_MS
       wifiChannelScanTime: 200, // CHANNEL_SCAN_TIME_MS
       bluetoothChannelScanTime: 200, // CHANNEL_SCAN_TIME_MS
       minimalEncounterCount: 2,
       minRssi: -75,
-      serverEndpoint: serverEndpoint,
     );
   }
 
@@ -46,7 +42,6 @@ class BoardSettings {
       bluetoothChannelScanTime: json['bluetooth_channel_scan_time'] as int,
       minimalEncounterCount: json['minimal_encounter_count'] as int,
       minRssi: json['min_rssi'] as int,
-      serverEndpoint: json['server_endpoint'] as String,
     );
   }
 
@@ -59,7 +54,6 @@ class BoardSettings {
       'bluetooth_channel_scan_time': bluetoothChannelScanTime,
       'minimal_encounter_count': minimalEncounterCount,
       'min_rssi': minRssi,
-      'server_endpoint': serverEndpoint,
     };
   }
 }
