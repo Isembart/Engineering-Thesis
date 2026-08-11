@@ -19,7 +19,7 @@ void setup()
 {
     pinMode(LED_BUILTIN, OUTPUT);
     Serial.begin(115200);
-    delay(1000);
+    delay(3000);
     // while (!Serial)
     // {
     //     delay(500);

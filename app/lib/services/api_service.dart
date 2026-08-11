@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/board.dart';
 import '../models/board_data_record.dart';
+import '../models/board_settings.dart';
 
 class ApiService {
   static const String _defaultUrl = 'http://192.168.1.100:3000';
@@ -72,5 +73,58 @@ class ApiService {
     if (response.statusCode != 200) {
       throw Exception('Failed to rename board: ${response.statusCode}');
     }
+  }
+
+  Future<BoardSettings?> getBoardSettings(int macAddress) async {
+    final baseUrl = await getServerUrl();
+    final uri = Uri.parse('$baseUrl/board-settings').replace(queryParameters: {
+      'mac_address': macAddress.toString(),
+    });
+
+    final response = await http.get(uri);
+
+    if (response.statusCode == 200) {
+      return BoardSettings.fromJson(json.decode(response.body));
+    }
+    if (response.statusCode == 404) {
+      return null;
+    }
+    throw Exception('Failed to load board settings: ${response.statusCode}');
+  }
+
+  Future<BoardSettings> createBoardSettings(int macAddress, BoardSettings settings) async {
+    final baseUrl = await getServerUrl();
+    final uri = Uri.parse('$baseUrl/board-settings').replace(queryParameters: {
+      'mac_address': macAddress.toString(),
+    });
+
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(settings.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return BoardSettings.fromJson(json.decode(response.body));
+    }
+    throw Exception('Failed to create board settings: ${response.statusCode}');
+  }
+
+  Future<BoardSettings> updateBoardSettings(int macAddress, BoardSettings settings) async {
+    final baseUrl = await getServerUrl();
+    final uri = Uri.parse('$baseUrl/board-settings').replace(queryParameters: {
+      'mac_address': macAddress.toString(),
+    });
+
+    final response = await http.put(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(settings.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return BoardSettings.fromJson(json.decode(response.body));
+    }
+    throw Exception('Failed to update board settings: ${response.statusCode}');
   }
 }

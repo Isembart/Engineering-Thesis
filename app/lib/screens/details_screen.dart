@@ -6,6 +6,7 @@ import '../models/board_data_record.dart';
 import '../services/api_service.dart';
 import '../services/data_aggregator.dart';
 import '../utils/mac_address_formatter.dart';
+import 'board_settings_screen.dart';
 
 enum Timeframe { last3Hours, fullDay }
 
@@ -37,7 +38,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
   @override
   void initState() {
     super.initState();
-    _boardName = widget.board.name;
+    _boardName = widget.board.name ?? '';
     _loadData();
   }
 
@@ -119,7 +120,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
   }
 
   Future<void> _showRenameDialog() async {
-    final controller = TextEditingController(text: widget.board.name);
+    final controller = TextEditingController(text: _boardName);
     final newName = await showDialog<String>(
       context: context,
       builder: (context) {
@@ -184,6 +185,18 @@ class _DetailsScreenState extends State<DetailsScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.tune, color: Colors.black87),
+            tooltip: 'Board settings',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BoardSettingsScreen(board: widget.board),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.edit, color: Colors.black87),
             onPressed: _showRenameDialog,

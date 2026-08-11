@@ -71,8 +71,9 @@ class _BoardCardState extends State<BoardCard> {
 
   @override
   Widget build(BuildContext context) {
-    final displayName = widget.board.name.isNotEmpty 
-        ? widget.board.name 
+    final name = widget.board.name;
+    final displayName = (name != null && name.isNotEmpty)
+        ? name
         : MacAddressFormatter.format(widget.board.boardMac);
 
     return GestureDetector(
