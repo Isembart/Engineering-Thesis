@@ -8,7 +8,7 @@ import '../services/data_aggregator.dart';
 import '../utils/mac_address_formatter.dart';
 import 'board_settings_screen.dart';
 
-enum Timeframe { last3Hours, fullDay }
+enum Timeframe { last3Hours, daytime, fullDay }
 
 class DetailsScreen extends StatefulWidget {
   final Board board;
@@ -27,7 +27,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
   List<AggregatedBucket> _buckets = [];
   late String _boardName;
   bool _boardsChanged = false;
-  Timeframe _selectedTimeframe = Timeframe.fullDay;
+  Timeframe _selectedTimeframe = Timeframe.daytime;
   DateTime _selectedDate = DateTime.now();
   double _currentClients = 0.0;
 
@@ -59,6 +59,10 @@ class _DetailsScreenState extends State<DetailsScreen> {
         end = now;
         start = now.subtract(const Duration(hours: 3));
         bucketSizeMinutes = 15;
+      } else if (_selectedTimeframe == Timeframe.daytime) {
+        start = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 6, 0, 0);
+        end = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59);
+        bucketSizeMinutes = 60;
       } else {
         start = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0, 0);
         end = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59);
@@ -115,7 +119,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
       setState(() {
         _selectedDate = picked;
         if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
-          _selectedTimeframe = Timeframe.fullDay;
+          _selectedTimeframe = Timeframe.daytime;
         }
       });
       _loadData();
@@ -249,84 +253,82 @@ class _DetailsScreenState extends State<DetailsScreen> {
       onRefresh: _refresh,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildCurrentStatusCard(),
             const SizedBox(height: 32),
+            const Text(
+              'Trends',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Trends',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    setState(() {
+                      _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+                      if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
+                        _selectedTimeframe = Timeframe.daytime;
+                      }
+                    });
+                    _loadData();
+                  },
+                ),
+                TextButton(
+                  onPressed: _selectCustomDate,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    minimumSize: Size.zero,
+                  ),
+                  child: Text(
+                    _isToday(_selectedDate) ? 'Today' : DateFormat('MMM d').format(_selectedDate),
+                    style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
                   ),
                 ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.chevron_left),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: () {
-                        setState(() {
-                          _selectedDate = _selectedDate.subtract(const Duration(days: 1));
-                          if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
-                            _selectedTimeframe = Timeframe.fullDay;
-                          }
-                        });
-                        _loadData();
-                      },
-                    ),
-                    TextButton(
-                      onPressed: _selectCustomDate,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        minimumSize: Size.zero,
-                      ),
-                      child: Text(
-                        _isToday(_selectedDate) ? 'Today' : DateFormat('MMM d').format(_selectedDate),
-                        style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.chevron_right),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: _isToday(_selectedDate)
-                          ? null
-                          : () {
-                              setState(() {
-                                _selectedDate = _selectedDate.add(const Duration(days: 1));
-                                if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
-                                  _selectedTimeframe = Timeframe.fullDay;
-                                }
-                              });
-                              _loadData();
-                            },
-                    ),
-                    const SizedBox(width: 8),
-                    DropdownButton<Timeframe>(
-                      value: _selectedTimeframe,
-                      items: [
-                        const DropdownMenuItem(value: Timeframe.fullDay, child: Text('Full Day')),
-                        if (_isToday(_selectedDate))
-                          const DropdownMenuItem(value: Timeframe.last3Hours, child: Text('Last 3h')),
-                      ],
-                      onChanged: (Timeframe? newValue) {
-                        if (newValue != null) {
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: _isToday(_selectedDate)
+                      ? null
+                      : () {
                           setState(() {
-                            _selectedTimeframe = newValue;
+                            _selectedDate = _selectedDate.add(const Duration(days: 1));
+                            if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
+                              _selectedTimeframe = Timeframe.daytime;
+                            }
                           });
                           _loadData();
-                        }
-                      },
-                    ),
+                        },
+                ),
+                const Spacer(),
+                DropdownButton<Timeframe>(
+                  value: _selectedTimeframe,
+                  underline: const SizedBox.shrink(),
+                  items: [
+                    const DropdownMenuItem(value: Timeframe.daytime, child: Text('6:00 – 23:00')),
+                    const DropdownMenuItem(value: Timeframe.fullDay, child: Text('Full Day')),
+                    if (_isToday(_selectedDate))
+                      const DropdownMenuItem(value: Timeframe.last3Hours, child: Text('Last 3h')),
                   ],
+                  onChanged: (Timeframe? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedTimeframe = newValue;
+                      });
+                      _loadData();
+                    }
+                  },
                 ),
               ],
             ),
@@ -391,20 +393,33 @@ class _DetailsScreenState extends State<DetailsScreen> {
       );
     }
 
+    final now = DateTime.now();
+    final maxClients = _buckets
+        .map((b) => b.averageClients)
+        .fold<double>(0, (prev, v) => v > prev ? v : prev);
+    final maxY = maxClients <= 0 ? 5.0 : (maxClients * 1.2).ceilToDouble();
+
+    // Label every 2 hours for day views, every ~4 buckets for shorter ranges.
+    final isHourly = _selectedTimeframe != Timeframe.last3Hours;
+    final labelEvery = isHourly ? 2 : 4;
+
     return Container(
       height: 350,
-      padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
+      padding: const EdgeInsets.fromLTRB(8, 24, 8, 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200, width: 1),
       ),
-      child: LineChart(
-        LineChartData(
+      child: BarChart(
+        BarChartData(
+          alignment: BarChartAlignment.spaceAround,
+          maxY: maxY,
+          minY: 0,
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: 5,
+            horizontalInterval: maxY <= 10 ? 2 : 5,
             getDrawingHorizontalLine: (value) {
               return FlLine(
                 color: Colors.grey.shade100,
@@ -412,89 +427,63 @@ class _DetailsScreenState extends State<DetailsScreen> {
               );
             },
           ),
+          borderData: FlBorderData(show: false),
           titlesData: FlTitlesData(
             show: true,
-            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 40,
-                interval: _buckets.length > 20 ? (_buckets.length / 5).floorToDouble() : 1,
+                reservedSize: 36,
                 getTitlesWidget: (value, meta) {
                   final index = value.toInt();
                   if (index < 0 || index >= _buckets.length) {
                     return const SizedBox.shrink();
                   }
-                  
+                  if (index % labelEvery != 0) {
+                    return const SizedBox.shrink();
+                  }
+
                   final bucket = _buckets[index];
-                  final label = DateFormat('HH:mm').format(bucket.startTime);
+                  final label = DateFormat(
+                    isHourly ? 'HH' : 'HH:mm',
+                  ).format(bucket.startTime);
 
                   return Padding(
                     padding: const EdgeInsets.only(top: 8.0),
-                    child: Transform.rotate(
-                      angle: -0.5,
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 10,
-                        ),
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 10,
                       ),
                     ),
                   );
                 },
               ),
             ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 40,
-                getTitlesWidget: (value, meta) {
-                  return Text(
-                    value.toInt().toString(),
-                    style: TextStyle(
-                      color: Colors.grey.shade500,
-                      fontSize: 12,
-                    ),
-                  );
-                },
-              ),
-            ),
+            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
-          borderData: FlBorderData(show: false),
-          minX: 0,
-          maxX: (_buckets.length - 1).toDouble(),
-          minY: 0,
-          lineBarsData: [
-            LineChartBarData(
-              spots: _buckets.asMap().entries.where((e) {
-                final bucket = e.value;
-                final now = DateTime.now();
-                if (bucket.startTime.isAfter(now)) return false;
-                if (bucket.averageClients == 0.0 && bucket.endTime.isAfter(now)) return false;
-                return true;
-              }).map((e) {
-                return FlSpot(e.key.toDouble(), e.value.averageClients);
-              }).toList(),
-              isCurved: false,
-              color: const Color(0xFF3B82F6),
-              barWidth: 3,
-              isStrokeCapRound: true,
-              dotData: FlDotData(show: true, getDotPainter: (spot, percent, barData, index) {
-                return FlDotCirclePainter(
-                  radius: 3,
-                  color: const Color(0xFF3B82F6),
-                  strokeWidth: 1,
-                  strokeColor: Colors.white,
-                );
-              }),
-              belowBarData: BarAreaData(
-                show: true,
-                color: const Color(0xFF3B82F6).withOpacity(0.1),
-              ),
-            ),
-          ],
+          barGroups: _buckets.asMap().entries.map((entry) {
+            final index = entry.key;
+            final bucket = entry.value;
+            final isFuture = bucket.startTime.isAfter(now);
+
+            return BarChartGroupData(
+              x: index,
+              barRods: [
+                BarChartRodData(
+                  toY: isFuture ? 0 : bucket.averageClients,
+                  color: isFuture || bucket.averageClients <= 0
+                      ? Colors.transparent
+                      : const Color(0xFF3B82F6),
+                  width: isHourly ? 8 : 10,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                ),
+              ],
+            );
+          }).toList(),
         ),
       ),
     );
