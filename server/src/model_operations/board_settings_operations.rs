@@ -49,7 +49,7 @@ pub async fn update_board_settings(
     active_model.bluetooth_channel_scan_time = Set(settings.bluetooth_channel_scan_time);
     active_model.minimal_encounter_count = Set(settings.minimal_encounter_count);
     active_model.min_rssi = Set(settings.min_rssi);
-    active_model.server_endpoint = Set(settings.server_endpoint);
+    // active_model.server_endpoint = Set(settings.server_endpoint);
     active_model.update(db).await
 }
 

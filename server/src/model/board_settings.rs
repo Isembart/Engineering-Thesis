@@ -15,7 +15,7 @@ pub struct Model {
     pub bluetooth_channel_scan_time: i64,
     pub minimal_encounter_count: i64,
     pub min_rssi: i64,
-    pub server_endpoint: String,
+    // pub server_endpoint: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

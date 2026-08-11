@@ -1,5 +1,5 @@
 name: local
 variables:
   - name: host
-    value: localhost:3000
+    value: https://inzynierka.bieda.it
     description: ""

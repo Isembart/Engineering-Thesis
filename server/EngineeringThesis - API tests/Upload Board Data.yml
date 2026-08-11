@@ -1,0 +1,28 @@
+info:
+  name: Upload Board Data
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{host}}/upload-board-data"
+  body:
+    type: json
+    data: |-
+      {
+        "mac_address": 1234,
+        "clients_count": 5
+      }
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "409"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

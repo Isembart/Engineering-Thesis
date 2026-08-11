@@ -15,9 +15,12 @@ ClientsBuffer clientsBuffer;
 
 BoardSettings boardSettings = BoardSettings::loadDefaultSettings();
 
+#define EXTERNAL_ANTENNA_PIN 14
+
 void setup()
 {
     pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(EXTERNAL_ANTENNA_PIN, OUTPUT);
     Serial.begin(115200);
     delay(3000);
     // while (!Serial)
@@ -29,7 +32,7 @@ void setup()
 
     if (boardSettings.externalAntenna)
     {
-        digitalWrite(14, HIGH); // Set GPIO14 high to use the external antenna
+        digitalWrite(EXTERNAL_ANTENNA_PIN, HIGH); // Set GPIO14 high to use the external antenna
         Serial.println("External antenna enabled");
     }
 
@@ -72,16 +75,10 @@ void loop()
         init_wifi_sniffer(&clientsBuffer, &boardSettings);
         return;
     }
-    if (send_data_to_server(clientsBuffer))
-    {
-        Serial.print("Reported devices: ");
-        Serial.println(reportedDevices);
-        clientsBuffer.clear();
-    }
-    else
-    {
-        Serial.println("Failed to send data to server");
-    }
+    send_data_to_server(clientsBuffer);
+    Serial.print("Reported devices: ");
+    Serial.println(reportedDevices);
+    clientsBuffer.clear();
 
     send_settings_to_server();
     get_settings_from_server();

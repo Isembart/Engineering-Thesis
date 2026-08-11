@@ -46,7 +46,7 @@ pub struct BoardSettingsDTO {
     pub bluetooth_channel_scan_time: i64,
     pub minimal_encounter_count: i64,
     pub min_rssi: i64,
-    pub server_endpoint: String,
+    // pub server_endpoint: String,
 }
 pub async fn insert_board_settings(
     State(pool): State<DbPool>,
@@ -75,7 +75,7 @@ pub async fn insert_board_settings(
         bluetooth_channel_scan_time: payload.bluetooth_channel_scan_time,
         minimal_encounter_count: payload.minimal_encounter_count,
         min_rssi: payload.min_rssi,
-        server_endpoint: payload.server_endpoint,
+        // server_endpoint: payload.server_endpoint,
     };
 
     let new_settings = board_settings_operations::insert_board_settings(settings, &pool).await?;
@@ -107,7 +107,7 @@ pub async fn update_board_settings(
         bluetooth_channel_scan_time: payload.bluetooth_channel_scan_time,
         minimal_encounter_count: payload.minimal_encounter_count,
         min_rssi: payload.min_rssi,
-        server_endpoint: payload.server_endpoint,
+        // server_endpoint: payload.server_endpoint,
     };
 
     match board_settings_operations::update_board_settings(new_settings.clone(), &pool).await {

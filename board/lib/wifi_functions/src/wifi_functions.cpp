@@ -219,6 +219,7 @@ bool send_data_to_server(ClientsBuffer &clientsBuffer)
     if (!http.begin(url.c_str()))
     {
         Serial.println("Failed to parse URL");
+        http.end();
         return false;
     }
 
@@ -325,9 +326,8 @@ bool get_settings_from_server()
     bool success = (httpResponseCode >= 200 && httpResponseCode < 300);
     if (httpResponseCode == 200)
     {
-        Serial.print("Settings downloaded successfully");
+        Serial.println("Settings downloaded successfully. Applying...");
 
-        Serial.println("Applying settings from server...");
         String payload = http.getString();
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, payload);
@@ -340,7 +340,6 @@ bool get_settings_from_server()
         g_boardSettings->WifiChannelScanTimeMS = doc["wifi_channel_scan_time"] | g_boardSettings->WifiChannelScanTimeMS;
         g_boardSettings->BluetoothChannelScanTimeMS = doc["bluetooth_channel_scan_time"] | g_boardSettings->BluetoothChannelScanTimeMS;
         g_boardSettings->MinimalEncounterCount = doc["minimal_encounter_count"] | g_boardSettings->MinimalEncounterCount;
-        g_boardSettings->ServerEndpoint = doc["server_endpoint"] | g_boardSettings->ServerEndpoint;
         g_boardSettings->minRSSI = doc["min_rssi"] | g_boardSettings->minRSSI;
     }
     else if (httpResponseCode == 404)
