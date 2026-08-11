@@ -1,0 +1,22 @@
+info:
+  name: Get Boards Data
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{host}}/get-board-data?mac_address=18406680123616&bucket_size_minutes=15"
+  params:
+    - name: mac_address
+      value: "18406680123616"
+      type: query
+    - name: bucket_size_minutes
+      value: "15"
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

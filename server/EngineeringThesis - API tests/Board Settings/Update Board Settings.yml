@@ -1,0 +1,35 @@
+info:
+  name: Update Board Settings
+  type: http
+  seq: 3
+
+http:
+  method: PUT
+  url: "{{host}}/board-settings?mac_address=18406680123616"
+  headers:
+    - name: Content-Type
+      value: application/json
+  params:
+    - name: mac_address
+      value: "18406680123616"
+      type: query
+  body:
+    type: json
+    data: |-
+      {
+        "scans_per_send": 3,
+        "wifi_scan_time": 10000,
+        "bluetooth_scan_time": 5,
+        "wifi_channel_scan_time": 250,
+        "bluetooth_channel_scan_time": 200,
+        "minimal_encounter_count": 3,
+        "min_rssi": -75,
+        "server_endpoint": "http://10.178.76.131:3000"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
