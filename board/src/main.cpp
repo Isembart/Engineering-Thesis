@@ -83,7 +83,7 @@ void loop()
         Serial.println("Failed to send data to server");
     }
 
-    // send_settings_to_server();
+    send_settings_to_server();
     get_settings_from_server();
 
     WiFi.disconnect();

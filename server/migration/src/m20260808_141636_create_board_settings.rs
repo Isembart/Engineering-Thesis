@@ -11,7 +11,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(BoardSettings::Table)
                     .if_not_exists()
-                    .col(integer(BoardSettings::BoardId).primary_key())
+                    .col(integer_uniq(BoardSettings::BoardId).primary_key())
                     .col(integer(BoardSettings::ScansPerSend))
                     .col(integer(BoardSettings::WifiScanTime))
                     .col(integer(BoardSettings::BluetoothScanTime))

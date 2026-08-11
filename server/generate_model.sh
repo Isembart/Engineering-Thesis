@@ -2,6 +2,7 @@
 
 sea-orm-cli generate entity \
 --with-serde both \
---output-dir src/model 
+--with-prelude none \
 --big-integer-type i64 \
+--output-dir src/model 
 # --experimental-preserve-user-modifications 

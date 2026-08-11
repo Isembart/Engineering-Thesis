@@ -5,13 +5,13 @@ info:
 
 http:
   method: PUT
-  url: "{{host}}/board-settings?mac_address=18406680123616"
+  url: "{{host}}/board-settings?mac_address=1234"
   headers:
     - name: Content-Type
       value: application/json
   params:
     - name: mac_address
-      value: "18406680123616"
+      value: "1234"
       type: query
   body:
     type: json

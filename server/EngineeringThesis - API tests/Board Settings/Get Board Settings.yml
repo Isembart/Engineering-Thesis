@@ -5,10 +5,10 @@ info:
 
 http:
   method: GET
-  url: "{{host}}/board-settings?mac_address=18406680123616"
+  url: "{{host}}/board-settings?mac_address=1234"
   params:
     - name: mac_address
-      value: "18406680123616"
+      value: "1234"
       type: query
   auth: inherit
 

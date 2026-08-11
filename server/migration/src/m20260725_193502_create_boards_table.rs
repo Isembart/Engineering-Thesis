@@ -12,7 +12,7 @@ impl MigrationTrait for Migration {
                     .table(Boards::Table)
                     .if_not_exists()
                     .col(pk_auto(Boards::Id))
-                    .col(big_integer(Boards::BoardMac))
+                    .col(big_integer_uniq(Boards::BoardMac))
                     .col(string_null(Boards::Name))
                     .to_owned(),
             )

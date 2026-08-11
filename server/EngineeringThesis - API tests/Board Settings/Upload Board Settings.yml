@@ -5,13 +5,13 @@ info:
 
 http:
   method: POST
-  url: "{{host}}/board-settings?mac_address=18406680123616"
+  url: "{{host}}/board-settings?mac_address=1234"
   headers:
     - name: Content-Type
       value: application/json
   params:
     - name: mac_address
-      value: "18406680123616"
+      value: "1234"
       type: query
   body:
     type: json
@@ -19,12 +19,12 @@ http:
       {
         "scans_per_send": 1,
         "wifi_scan_time": 6,
-        "bluetooth_scan_time": 5,
-        "wifi_channel_scan_time": 5,
-        "bluetooth_channel_scan_time": 5,
-        "minimal_encounter_count": 3,
-        "min_rssi": -75,
-        "server_endpoint": "http://localhost:8000"
+        "bluetooth_scan_time": 5
+      //   "wifi_channel_scan_time": 5,
+      //   "bluetooth_channel_scan_time": 5,
+      //   "minimal_encounter_count": 3,
+      //   "min_rssi": -75,
+      //   "server_endpoint": "http://localhost:8000"
       }
   auth: inherit
 

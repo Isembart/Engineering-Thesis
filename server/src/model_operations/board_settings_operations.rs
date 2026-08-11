@@ -2,7 +2,6 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, DbErr::RecordNotFound,
     EntityTrait, QueryFilter,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::model::{board_settings, boards};
 
@@ -27,85 +26,37 @@ pub async fn get_settings_by_board_mac(
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct BoardSettingsDTO {
-    pub scans_per_send: i64,
-    pub wifi_scan_time: i64,
-    pub bluetooth_scan_time: i64,
-    pub wifi_channel_scan_time: i64,
-    pub bluetooth_channel_scan_time: i64,
-    pub minimal_encounter_count: i64,
-    pub min_rssi: i64,
-    pub server_endpoint: String,
-}
-
 pub async fn update_board_settings(
-    mac_address: i64,
-    settings: BoardSettingsDTO,
+    settings: board_settings::Model,
     db: &DatabaseConnection,
 ) -> Result<board_settings::Model, sea_orm::DbErr> {
-    let board = match boards::Entity::find()
-        .filter(boards::Column::BoardMac.eq(mac_address))
+    let existing_settings = match board_settings::Entity::find()
+        .filter(board_settings::Column::BoardId.eq(settings.board_id))
         .one(db)
         .await?
     {
-        Some(board) => board,
+        Some(existing_settings) => existing_settings,
         None => {
-            return Err(RecordNotFound(format!(
-                "Board with MAC {} not found",
-                mac_address
-            )))
+            return Err(RecordNotFound(format!("Board settings not found",)));
         }
     };
 
-    if let Some(existing_settings) = board_settings::Entity::find()
-        .filter(board_settings::Column::BoardId.eq(board.id))
-        .one(db)
-        .await?
-    {
-        let mut active_model: board_settings::ActiveModel = existing_settings.into();
-        let json = serde_json::to_value(&settings).map_err(|e| {
-            sea_orm::DbErr::Custom(format!("Failed to serialize settings to JSON: {}", e))
-        })?;
-        active_model.set_from_json(json)?;
-        active_model.update(db).await
-    } else {
-        return Err(RecordNotFound(format!(
-            "Board settings for board with MAC {} not found",
-            mac_address
-        )));
-    }
+    let mut active_model: board_settings::ActiveModel = existing_settings.into();
+    active_model.scans_per_send = Set(settings.scans_per_send);
+    active_model.wifi_scan_time = Set(settings.wifi_scan_time);
+    active_model.bluetooth_scan_time = Set(settings.bluetooth_scan_time);
+    active_model.wifi_channel_scan_time = Set(settings.wifi_channel_scan_time);
+    active_model.bluetooth_channel_scan_time = Set(settings.bluetooth_channel_scan_time);
+    active_model.minimal_encounter_count = Set(settings.minimal_encounter_count);
+    active_model.min_rssi = Set(settings.min_rssi);
+    active_model.server_endpoint = Set(settings.server_endpoint);
+    active_model.update(db).await
 }
 
 pub async fn insert_board_settings(
-    mac_address: i64,
-    settings: BoardSettingsDTO,
+    settings: board_settings::Model,
     db: &DatabaseConnection,
 ) -> Result<board_settings::Model, sea_orm::DbErr> {
-    let board = match boards::Entity::find()
-        .filter(boards::Column::BoardMac.eq(mac_address))
-        .one(db)
-        .await?
-    {
-        Some(board) => board,
-        None => {
-            return Err(RecordNotFound(format!(
-                "Board with MAC {} not found",
-                mac_address
-            )));
-        }
-    };
-
-    let active_model = board_settings::ActiveModel {
-        board_id: Set(board.id),
-        scans_per_send: Set(settings.scans_per_send),
-        wifi_scan_time: Set(settings.wifi_scan_time),
-        bluetooth_scan_time: Set(settings.bluetooth_scan_time),
-        wifi_channel_scan_time: Set(settings.wifi_channel_scan_time),
-        bluetooth_channel_scan_time: Set(settings.bluetooth_channel_scan_time),
-        minimal_encounter_count: Set(settings.minimal_encounter_count),
-        min_rssi: Set(settings.min_rssi),
-        server_endpoint: Set(settings.server_endpoint),
-    };
+    let active_model: board_settings::ActiveModel = settings.into();
     active_model.insert(db).await
 }
