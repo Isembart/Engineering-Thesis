@@ -19,4 +19,5 @@ public:
     std::map<MAC_TYPE, int> getFilteredClients(uint8_t minEncounterCount);
     void clear();
     void printClients();
+    int getClientCount();
 };

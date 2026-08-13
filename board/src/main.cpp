@@ -10,6 +10,7 @@
 #include "config.h"
 #include <board_settings.h>
 #include <string.h>
+#include <bluetooth_functions.h>
 
 ClientsBuffer clientsBuffer;
 
@@ -30,34 +31,39 @@ void setup()
     // }
     Serial.println("Serial connected");
 
+    init_bluetooth_sniffer(&clientsBuffer, &boardSettings);
+    init_wifi_sniffer(&clientsBuffer, &boardSettings);
+
     if (boardSettings.externalAntenna)
     {
         digitalWrite(EXTERNAL_ANTENNA_PIN, HIGH); // Set GPIO14 high to use the external antenna
         Serial.println("External antenna enabled");
     }
-
-    init_wifi_sniffer(&clientsBuffer, &boardSettings);
-    Serial.println("Promiscuous sniffer started");
 }
 
 void loop()
 {
+
+    start_wifi_sniffer();
+
     for (uint8_t scan = 0; scan < boardSettings.ScansPerSend; ++scan)
     {
+        int lastDeviceCount = clientsBuffer.getClientCount();
         const unsigned long wifiScanStart = millis();
         while (millis() - wifiScanStart < boardSettings.WifiScanTimeMS)
         {
             delay(boardSettings.WifiChannelScanTimeMS);
             hop_wifi_channel();
         }
-        Serial.println("WiFi scan completed");
+        Serial.print("WiFi scan completed, devices seen: ");
+        Serial.println(clientsBuffer.getClientCount() - lastDeviceCount);
 
-        // bluetooth scan will use BLUETOOTH_SCAN_TIME_S here
+        scan_bluetooth_devices();
     }
 
     // SEND DATA
     bool connected = false;
-    if (PEAP)
+    if (boardSettings.peap)
     {
         connected = connect_to_wifi_peap(boardSettings.wifiSSID, boardSettings.peapIdentity, boardSettings.peapUsername, boardSettings.peapPassword);
     }
@@ -68,31 +74,23 @@ void loop()
 
     const auto reportedDevices = clientsBuffer.getFilteredClients(boardSettings.MinimalEncounterCount).size();
 
-    if (!connected)
+    if (connected)
+    {
+        send_data_to_server(clientsBuffer);
+        Serial.print("Reported devices: ");
+        Serial.println(reportedDevices);
+    }
+    else
     {
         Serial.println("Skipping upload because WiFi is not connected");
-        WiFi.disconnect();
-        init_wifi_sniffer(&clientsBuffer, &boardSettings);
-        return;
     }
-    send_data_to_server(clientsBuffer);
-    Serial.print("Reported devices: ");
-    Serial.println(reportedDevices);
-    clientsBuffer.clear();
 
+    clientsBuffer.clear();
     send_settings_to_server();
     get_settings_from_server();
 
     WiFi.disconnect();
-    init_wifi_sniffer(&clientsBuffer, &boardSettings);
-
-    // Serial.println("\nFiltered clients:");
-    // for (const auto &[mac, count] : clientsBuffer.getFilteredClients(3))
-    // {
-    //     Serial.print(mac);
-    //     Serial.print(": ");
-    //     Serial.println(count);
-    // }
+    WiFi.mode(WIFI_OFF);
 
     // hop thruogh every channel and sniff packets
     // for every packet:

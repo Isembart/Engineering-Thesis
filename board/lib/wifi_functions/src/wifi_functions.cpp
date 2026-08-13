@@ -2,14 +2,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <esp_wifi.h>
-#include <esp_event.h>
-#include <esp_netif.h>
-#include <esp_http_client.h>
-#include <esp_wpa2.h>
 #include <esp_mac.h>
-#include "config.h"
 #include "wifi_buffer/wifi_buffer.h"
-#include <HardwareSerial.h>
 #include <stdio.h>
 #include <crypto_functions.h>
 #include <HTTPClient.h>
@@ -28,14 +22,18 @@ uint64_t get_mac_address()
 {
     uint8_t macBytes[6];
     esp_read_mac(macBytes, ESP_MAC_WIFI_STA);
+    return convert_mac_bytes_to_int(macBytes);
+}
+
+uint64_t convert_mac_bytes_to_int(const uint8_t *macBytes)
+{
 
     uint64_t macAddressValue = 0;
     for (uint8_t i = 0; i < 6; ++i)
     {
         macAddressValue = (macAddressValue << 8) | macBytes[i];
     }
-    // char macAddress[21];
-    // snprintf(macAddress, sizeof(macAddress), "%llu", (unsigned long long)macAddressValue);
+
     return macAddressValue;
 }
 
@@ -48,23 +46,14 @@ void init_wifi_sniffer(ClientsBuffer *clientsBuffer, BoardSettings *boardSetting
 {
     g_clientsBuffer = clientsBuffer;
     g_boardSettings = boardSettings;
+}
+
+void start_wifi_sniffer()
+{
 
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
     delay(100);
-
-    // if (!g_wifiInitialized)
-    // {
-    //     ESP_ERROR_CHECK(esp_netif_init());
-    //     ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-    //     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    //     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    //     ESP_ERROR_CHECK(esp_wifi_start());
-
-    //     g_wifiInitialized = true;
-    // }
-    // ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous(false));
 
@@ -75,6 +64,8 @@ void init_wifi_sniffer(ClientsBuffer *clientsBuffer, BoardSettings *boardSetting
     ESP_ERROR_CHECK(esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE));
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous_rx_cb(wifi_packet_handler));
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous(true));
+
+    Serial.println("Promiscuous sniffer started");
 }
 
 void hop_wifi_channel()
@@ -128,14 +119,14 @@ void wifi_packet_handler(void *buffer, wifi_promiscuous_pkt_type_t type)
         return; // ignore beacons, probe responses, etc.
     }
 
-    uint8_t *src_mac = payload + 10; // source MAC is at offset 10 in management frames
-    char macStr[18];
-    sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X",
-            src_mac[0], src_mac[1], src_mac[2], src_mac[3], src_mac[4], src_mac[5]);
+    // uint8_t *src_mac = payload + 10; // source MAC is at offset 10 in management frames
+    uint8_t src_mac_bytes[6] = {0};
+    memcpy(src_mac_bytes, payload + 10, 6);
 
-    uint64_t macHash = hash_64_fnv1a(src_mac, 6);
-    // delete the stack declared macStr to save memory, we only need the hash for tracking
-    memset(macStr, 0, sizeof(macStr));
+    uint64_t macHash = hash_64_fnv1a(src_mac_bytes, 6);
+
+    // override the stored MAC address to anonymize it
+    memset(src_mac_bytes, 0, sizeof(src_mac_bytes));
 
     if (g_clientsBuffer)
     {
@@ -153,7 +144,7 @@ bool connect_to_wifi(const char *ssid, const char *password)
 
     Serial.print(F("Connecting to WiFi .."));
 
-    WiFi.begin(ssid, password, 0, nullptr, true); // last parameter is to enable fast reconnection
+    WiFi.begin(ssid, password); // last parameter is to enable fast reconnection
     int attempts = 0;
     while (WiFi.status() != WL_CONNECTED && attempts < 20)
     {
@@ -204,7 +195,7 @@ bool connect_to_wifi_peap(const char *ssid, const char *identity, const char *us
 
 bool send_data_to_server(ClientsBuffer &clientsBuffer)
 {
-    const auto filteredClients = clientsBuffer.getFilteredClients(MINIMAL_ENCOUNTER_COUNT);
+    const auto filteredClients = clientsBuffer.getFilteredClients(g_boardSettings->MinimalEncounterCount);
 
     String jsonBody = String("{\"mac_address\":") + get_mac_address_str() + String(",\"clients_count\":") + String(filteredClients.size()) + String("}");
 
@@ -265,13 +256,14 @@ bool send_settings_to_server()
     // serialize the settings to JSON
     JsonDocument doc;
     doc["scans_per_send"] = g_boardSettings->ScansPerSend;
-    doc["wifi_scan_time"] = g_boardSettings->WifiScanTimeMS;
-    doc["bluetooth_scan_time"] = g_boardSettings->BluetoothScanTimeMS;
-    doc["wifi_channel_scan_time"] = g_boardSettings->WifiChannelScanTimeMS;
-    doc["bluetooth_channel_scan_time"] = g_boardSettings->BluetoothChannelScanTimeMS;
+    doc["wifi_scan_time_ms"] = g_boardSettings->WifiScanTimeMS;
+    doc["bluetooth_scan_time_ms"] = g_boardSettings->BluetoothScanTimeMS;
+    doc["wifi_channel_scan_time_ms"] = g_boardSettings->WifiChannelScanTimeMS;
+    doc["bluetooth_channel_scan_time_ms"] = g_boardSettings->BluetoothChannelScanTimeMS;
     doc["minimal_encounter_count"] = g_boardSettings->MinimalEncounterCount;
     doc["server_endpoint"] = g_boardSettings->ServerEndpoint;
     doc["min_rssi"] = g_boardSettings->minRSSI;
+    doc["min_rssi_ble"] = g_boardSettings->minRSSIBLE;
     // Sensitve fields, not supported by backend
     // doc["externalAntenna"] = g_boardSettings->externalAntenna;
     // doc["wifiSSID"] = g_boardSettings->wifiSSID;

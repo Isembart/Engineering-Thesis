@@ -17,7 +17,8 @@ public:
                   const char *peapIdentity,
                   const char *peapUsername,
                   const char *peapPassword,
-                  signed int minRSSI)
+                  signed int minRSSI,
+                  signed int minRSSIBLE)
         : ScansPerSend(scansPerSend),
           WifiScanTimeMS(wifiScanTime),
           BluetoothScanTimeMS(bluetoothScanTime),
@@ -32,7 +33,10 @@ public:
           peapIdentity(peapIdentity),
           peapUsername(peapUsername),
           peapPassword(peapPassword),
-          minRSSI(minRSSI) {}
+          minRSSI(minRSSI),
+          minRSSIBLE(minRSSIBLE)
+    {
+    }
 
     unsigned int ScansPerSend;
     // Time in milliseconds
@@ -55,6 +59,7 @@ public:
     const char *peapPassword;
 
     signed int minRSSI;
+    signed int minRSSIBLE;
 
     // Load default settings from config.h
     static BoardSettings loadDefaultSettings();

@@ -39,3 +39,9 @@ void ClientsBuffer::printClients()
         Serial.println(count);
     }
 }
+
+int ClientsBuffer::getClientCount()
+{
+    std::shared_lock lock(mutex);
+    return clients.size();
+}
