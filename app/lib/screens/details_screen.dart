@@ -273,7 +273,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                 IconButton(
                   icon: const Icon(Icons.chevron_left),
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   onPressed: () {
                     setState(() {
                       _selectedDate = _selectedDate.subtract(const Duration(days: 1));
@@ -289,6 +289,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text(
                     _isToday(_selectedDate) ? 'Today' : DateFormat('MMM d').format(_selectedDate),
@@ -298,7 +299,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                 IconButton(
                   icon: const Icon(Icons.chevron_right),
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   onPressed: _isToday(_selectedDate)
                       ? null
                       : () {
@@ -311,24 +312,30 @@ class _DetailsScreenState extends State<DetailsScreen> {
                           _loadData();
                         },
                 ),
-                const Spacer(),
-                DropdownButton<Timeframe>(
-                  value: _selectedTimeframe,
-                  underline: const SizedBox.shrink(),
-                  items: [
-                    const DropdownMenuItem(value: Timeframe.daytime, child: Text('6:00 – 23:00')),
-                    const DropdownMenuItem(value: Timeframe.fullDay, child: Text('Full Day')),
-                    if (_isToday(_selectedDate))
-                      const DropdownMenuItem(value: Timeframe.last3Hours, child: Text('Last 3h')),
-                  ],
-                  onChanged: (Timeframe? newValue) {
-                    if (newValue != null) {
-                      setState(() {
-                        _selectedTimeframe = newValue;
-                      });
-                      _loadData();
-                    }
-                  },
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<Timeframe>(
+                        value: _selectedTimeframe,
+                        isDense: true,
+                        items: [
+                          const DropdownMenuItem(value: Timeframe.daytime, child: Text('6:00-23:00')),
+                          const DropdownMenuItem(value: Timeframe.fullDay, child: Text('Full Day')),
+                          if (_isToday(_selectedDate))
+                            const DropdownMenuItem(value: Timeframe.last3Hours, child: Text('Last 3h')),
+                        ],
+                        onChanged: (Timeframe? newValue) {
+                          if (newValue != null) {
+                            setState(() {
+                              _selectedTimeframe = newValue;
+                            });
+                            _loadData();
+                          }
+                        },
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),

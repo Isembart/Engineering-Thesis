@@ -19,12 +19,12 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _scansPerSendController = TextEditingController();
-  final _wifiScanTimeController = TextEditingController();
-  final _bluetoothScanTimeController = TextEditingController();
-  final _wifiChannelScanTimeController = TextEditingController();
-  final _bluetoothChannelScanTimeController = TextEditingController();
+  final _wifiScanTimeMsController = TextEditingController();
+  final _bluetoothScanTimeMsController = TextEditingController();
+  final _wifiChannelScanTimeMsController = TextEditingController();
   final _minimalEncounterCountController = TextEditingController();
   final _minRssiController = TextEditingController();
+  final _minRssiBleController = TextEditingController();
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -39,12 +39,12 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
 
   void _applySettings(BoardSettings settings) {
     _scansPerSendController.text = settings.scansPerSend.toString();
-    _wifiScanTimeController.text = settings.wifiScanTime.toString();
-    _bluetoothScanTimeController.text = settings.bluetoothScanTime.toString();
-    _wifiChannelScanTimeController.text = settings.wifiChannelScanTime.toString();
-    _bluetoothChannelScanTimeController.text = settings.bluetoothChannelScanTime.toString();
+    _wifiScanTimeMsController.text = settings.wifiScanTimeMs.toString();
+    _bluetoothScanTimeMsController.text = settings.bluetoothScanTimeMs.toString();
+    _wifiChannelScanTimeMsController.text = settings.wifiChannelScanTimeMs.toString();
     _minimalEncounterCountController.text = settings.minimalEncounterCount.toString();
     _minRssiController.text = settings.minRssi.toString();
+    _minRssiBleController.text = settings.minRssiBle.toString();
   }
 
   Future<void> _loadSettings() async {
@@ -78,12 +78,12 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
   BoardSettings _settingsFromForm() {
     return BoardSettings(
       scansPerSend: int.parse(_scansPerSendController.text.trim()),
-      wifiScanTime: int.parse(_wifiScanTimeController.text.trim()),
-      bluetoothScanTime: int.parse(_bluetoothScanTimeController.text.trim()),
-      wifiChannelScanTime: int.parse(_wifiChannelScanTimeController.text.trim()),
-      bluetoothChannelScanTime: int.parse(_bluetoothChannelScanTimeController.text.trim()),
+      wifiScanTimeMs: int.parse(_wifiScanTimeMsController.text.trim()),
+      bluetoothScanTimeMs: int.parse(_bluetoothScanTimeMsController.text.trim()),
+      wifiChannelScanTimeMs: int.parse(_wifiChannelScanTimeMsController.text.trim()),
       minimalEncounterCount: int.parse(_minimalEncounterCountController.text.trim()),
       minRssi: int.parse(_minRssiController.text.trim()),
+      minRssiBle: int.parse(_minRssiBleController.text.trim()),
     );
   }
 
@@ -122,12 +122,12 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
   @override
   void dispose() {
     _scansPerSendController.dispose();
-    _wifiScanTimeController.dispose();
-    _bluetoothScanTimeController.dispose();
-    _wifiChannelScanTimeController.dispose();
-    _bluetoothChannelScanTimeController.dispose();
+    _wifiScanTimeMsController.dispose();
+    _bluetoothScanTimeMsController.dispose();
+    _wifiChannelScanTimeMsController.dispose();
     _minimalEncounterCountController.dispose();
     _minRssiController.dispose();
+    _minRssiBleController.dispose();
     super.dispose();
   }
 
@@ -233,24 +233,16 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
             label: 'Scans per send',
           ),
           _intField(
-            controller: _wifiScanTimeController,
+            controller: _wifiScanTimeMsController,
             label: 'WiFi scan time (ms)',
-            helper: 'Milliseconds',
           ),
           _intField(
-            controller: _bluetoothScanTimeController,
+            controller: _bluetoothScanTimeMsController,
             label: 'Bluetooth scan time (ms)',
-            helper: 'Milliseconds',
           ),
           _intField(
-            controller: _wifiChannelScanTimeController,
+            controller: _wifiChannelScanTimeMsController,
             label: 'WiFi channel scan time (ms)',
-            helper: 'Milliseconds',
-          ),
-          _intField(
-            controller: _bluetoothChannelScanTimeController,
-            label: 'Bluetooth channel scan time (ms)',
-            helper: 'Milliseconds',
           ),
           _intField(
             controller: _minimalEncounterCountController,
@@ -258,7 +250,12 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
           ),
           _intField(
             controller: _minRssiController,
-            label: 'Min RSSI (dBm)',
+            label: 'Min RSSI WiFi (dBm)',
+            allowNegative: true,
+          ),
+          _intField(
+            controller: _minRssiBleController,
+            label: 'Min RSSI BLE (dBm)',
             allowNegative: true,
           ),
           const SizedBox(height: 8),
