@@ -40,13 +40,12 @@ pub struct BoardSettingsQueryDTO {
 #[derive(Serialize, Deserialize)]
 pub struct BoardSettingsDTO {
     pub scans_per_send: i64,
-    pub wifi_scan_time: i64,
-    pub bluetooth_scan_time: i64,
-    pub wifi_channel_scan_time: i64,
-    pub bluetooth_channel_scan_time: i64,
+    pub wifi_scan_time_ms: i64,
+    pub bluetooth_scan_time_ms: i64,
+    pub wifi_channel_scan_time_ms: i64,
     pub minimal_encounter_count: i64,
     pub min_rssi: i64,
-    // pub server_endpoint: String,
+    pub min_rssi_ble: i64,
 }
 pub async fn insert_board_settings(
     State(pool): State<DbPool>,
@@ -69,12 +68,12 @@ pub async fn insert_board_settings(
     let settings = board_settings::Model {
         board_id: board.id,
         scans_per_send: payload.scans_per_send,
-        wifi_scan_time: payload.wifi_scan_time,
-        bluetooth_scan_time: payload.bluetooth_scan_time,
-        wifi_channel_scan_time: payload.wifi_channel_scan_time,
-        bluetooth_channel_scan_time: payload.bluetooth_channel_scan_time,
+        wifi_scan_time_ms: payload.wifi_scan_time_ms,
+        bluetooth_scan_time_ms: payload.bluetooth_scan_time_ms,
+        wifi_channel_scan_time_ms: payload.wifi_channel_scan_time_ms,
         minimal_encounter_count: payload.minimal_encounter_count,
         min_rssi: payload.min_rssi,
+        min_rssi_ble: payload.min_rssi_ble,
         // server_endpoint: payload.server_endpoint,
     };
 
@@ -101,13 +100,12 @@ pub async fn update_board_settings(
     let new_settings = board_settings::Model {
         board_id: board.id,
         scans_per_send: payload.scans_per_send,
-        wifi_scan_time: payload.wifi_scan_time,
-        bluetooth_scan_time: payload.bluetooth_scan_time,
-        wifi_channel_scan_time: payload.wifi_channel_scan_time,
-        bluetooth_channel_scan_time: payload.bluetooth_channel_scan_time,
+        wifi_scan_time_ms: payload.wifi_scan_time_ms,
+        bluetooth_scan_time_ms: payload.bluetooth_scan_time_ms,
+        wifi_channel_scan_time_ms: payload.wifi_channel_scan_time_ms,
         minimal_encounter_count: payload.minimal_encounter_count,
         min_rssi: payload.min_rssi,
-        // server_endpoint: payload.server_endpoint,
+        min_rssi_ble: payload.min_rssi_ble,
     };
 
     match board_settings_operations::update_board_settings(new_settings.clone(), &pool).await {

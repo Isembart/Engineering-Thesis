@@ -43,10 +43,9 @@ pub async fn update_board_settings(
 
     let mut active_model: board_settings::ActiveModel = existing_settings.into();
     active_model.scans_per_send = Set(settings.scans_per_send);
-    active_model.wifi_scan_time = Set(settings.wifi_scan_time);
-    active_model.bluetooth_scan_time = Set(settings.bluetooth_scan_time);
-    active_model.wifi_channel_scan_time = Set(settings.wifi_channel_scan_time);
-    active_model.bluetooth_channel_scan_time = Set(settings.bluetooth_channel_scan_time);
+    active_model.wifi_scan_time_ms = Set(settings.wifi_scan_time_ms);
+    active_model.bluetooth_scan_time_ms = Set(settings.bluetooth_scan_time_ms);
+    active_model.wifi_channel_scan_time_ms = Set(settings.wifi_channel_scan_time_ms);
     active_model.minimal_encounter_count = Set(settings.minimal_encounter_count);
     active_model.min_rssi = Set(settings.min_rssi);
     // active_model.server_endpoint = Set(settings.server_endpoint);

@@ -19,7 +19,6 @@ impl MigrationTrait for Migration {
                     .col(integer(BoardSettings::BluetoothChannelScanTime))
                     .col(integer(BoardSettings::MinimalEncounterCount))
                     .col(integer(BoardSettings::MinRssi))
-                    // .col(string(BoardSettings::ServerEndpoint))
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_board_settings_board_id")
@@ -40,7 +39,7 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(DeriveIden)]
-enum BoardSettings {
+pub enum BoardSettings {
     Table,
     BoardId,
     ScansPerSend,
@@ -49,6 +48,5 @@ enum BoardSettings {
     WifiChannelScanTime,
     BluetoothChannelScanTime,
     MinimalEncounterCount,
-    // ServerEndpoint,
     MinRssi,
 }

@@ -25,18 +25,6 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await
-
-        // manager
-        //     .create_foreign_key(
-        //         sea_query::ForeignKey::create()
-        //             .name("fk_board_data_records_board_id")
-        //             .from(BoardDataRecords::Table, BoardDataRecords::BoardId)
-        //             .to("Boards", "Id")
-        //             .on_delete(ForeignKeyAction::Cascade)
-        //             .to_owned(),
-        //     )
-        //     .await?;
-        // Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {

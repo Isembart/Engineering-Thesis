@@ -9,13 +9,12 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, unique)]
     pub board_id: i64,
     pub scans_per_send: i64,
-    pub wifi_scan_time: i64,
-    pub bluetooth_scan_time: i64,
-    pub wifi_channel_scan_time: i64,
-    pub bluetooth_channel_scan_time: i64,
+    pub wifi_scan_time_ms: i64,
+    pub bluetooth_scan_time_ms: i64,
+    pub wifi_channel_scan_time_ms: i64,
     pub minimal_encounter_count: i64,
     pub min_rssi: i64,
-    // pub server_endpoint: String,
+    pub min_rssi_ble: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
