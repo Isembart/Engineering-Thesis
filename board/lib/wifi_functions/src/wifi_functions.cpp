@@ -259,9 +259,7 @@ bool send_settings_to_server()
     doc["wifi_scan_time_ms"] = g_boardSettings->WifiScanTimeMS;
     doc["bluetooth_scan_time_ms"] = g_boardSettings->BluetoothScanTimeMS;
     doc["wifi_channel_scan_time_ms"] = g_boardSettings->WifiChannelScanTimeMS;
-    doc["bluetooth_channel_scan_time_ms"] = g_boardSettings->BluetoothChannelScanTimeMS;
     doc["minimal_encounter_count"] = g_boardSettings->MinimalEncounterCount;
-    doc["server_endpoint"] = g_boardSettings->ServerEndpoint;
     doc["min_rssi"] = g_boardSettings->minRSSI;
     doc["min_rssi_ble"] = g_boardSettings->minRSSIBLE;
     // Sensitve fields, not supported by backend
@@ -327,12 +325,12 @@ bool get_settings_from_server()
         Serial.println("New settings from server:");
         serializeJsonPretty(doc, Serial);
         g_boardSettings->ScansPerSend = doc["scans_per_send"] | g_boardSettings->ScansPerSend;
-        g_boardSettings->WifiScanTimeMS = doc["wifi_scan_time"] | g_boardSettings->WifiScanTimeMS;
-        g_boardSettings->BluetoothScanTimeMS = doc["bluetooth_scan_time"] | g_boardSettings->BluetoothScanTimeMS;
-        g_boardSettings->WifiChannelScanTimeMS = doc["wifi_channel_scan_time"] | g_boardSettings->WifiChannelScanTimeMS;
-        g_boardSettings->BluetoothChannelScanTimeMS = doc["bluetooth_channel_scan_time"] | g_boardSettings->BluetoothChannelScanTimeMS;
+        g_boardSettings->WifiScanTimeMS = doc["wifi_scan_time_ms"] | g_boardSettings->WifiScanTimeMS;
+        g_boardSettings->BluetoothScanTimeMS = doc["bluetooth_scan_time_ms"] | g_boardSettings->BluetoothScanTimeMS;
+        g_boardSettings->WifiChannelScanTimeMS = doc["wifi_channel_scan_time_ms"] | g_boardSettings->WifiChannelScanTimeMS;
         g_boardSettings->MinimalEncounterCount = doc["minimal_encounter_count"] | g_boardSettings->MinimalEncounterCount;
         g_boardSettings->minRSSI = doc["min_rssi"] | g_boardSettings->minRSSI;
+        g_boardSettings->minRSSIBLE = doc["min_rssi_ble"] | g_boardSettings->minRSSIBLE;
     }
     else if (httpResponseCode == 404)
     {

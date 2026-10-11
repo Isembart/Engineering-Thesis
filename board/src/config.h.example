@@ -16,3 +16,4 @@
 #define MINIMAL_ENCOUNTER_COUNT 2
 #define SERVER_ENDPOINT "http://192.168.68.55:3000"
 #define MIN_RSSI -75
+#define MIN_RSSI_BLE -85

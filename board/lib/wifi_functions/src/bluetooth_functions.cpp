@@ -5,7 +5,7 @@
 #include <BLEDevice.h>
 #include <BLEAdvertisedDevice.h>
 #include <BLEScan.h>
-#include "wifi_functions.h"
+#include <crypto_functions.h>
 
 namespace
 {
@@ -47,7 +47,8 @@ void scan_bluetooth_devices()
         continue; // Skip devices with RSSI below the threshold
       }
 
-      g_clientsBuffer->addClient(convert_mac_bytes_to_int(addressBytes));
+      // hash the address like the WiFi path does, so no raw MAC is stored
+      g_clientsBuffer->addClient(hash_64_fnv1a(addressBytes, 6));
       devicesCounted++;
     }
 

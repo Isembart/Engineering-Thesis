@@ -7,7 +7,6 @@ public:
                   unsigned int wifiScanTime,
                   unsigned int bluetoothScanTime,
                   unsigned int wifiChannelScanTime,
-                  unsigned int bluetoothChannelScanTime,
                   unsigned int minimalEncounterCount,
                   String serverEndpoint,
                   bool externalAntenna,
@@ -23,7 +22,6 @@ public:
           WifiScanTimeMS(wifiScanTime),
           BluetoothScanTimeMS(bluetoothScanTime),
           WifiChannelScanTimeMS(wifiChannelScanTime),
-          BluetoothChannelScanTimeMS(bluetoothChannelScanTime),
           MinimalEncounterCount(minimalEncounterCount),
           ServerEndpoint(serverEndpoint),
           externalAntenna(externalAntenna),
@@ -45,8 +43,6 @@ public:
     unsigned int BluetoothScanTimeMS;
     // Time in milliseconds
     unsigned int WifiChannelScanTimeMS;
-    // Time in milliseconds
-    unsigned int BluetoothChannelScanTimeMS;
     unsigned int MinimalEncounterCount;
     String ServerEndpoint;
     bool externalAntenna;

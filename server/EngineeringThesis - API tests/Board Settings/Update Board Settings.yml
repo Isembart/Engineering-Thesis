@@ -18,13 +18,12 @@ http:
     data: |-
       {
         "scans_per_send": 3,
-        "wifi_scan_time": 10000,
-        "bluetooth_scan_time": 5,
-        "wifi_channel_scan_time": 250,
-        "bluetooth_channel_scan_time": 200,
+        "wifi_scan_time_ms": 10000,
+        "bluetooth_scan_time_ms": 5000,
+        "wifi_channel_scan_time_ms": 250,
         "minimal_encounter_count": 3,
         "min_rssi": -75,
-        "server_endpoint": "http://10.178.76.131:3000"
+        "min_rssi_ble": -85
       }
   auth: inherit
 
