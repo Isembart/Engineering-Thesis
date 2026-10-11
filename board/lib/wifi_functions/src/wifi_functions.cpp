@@ -11,7 +11,6 @@
 #include <Update.h>
 #include <Preferences.h>
 #include <esp_ota_ops.h>
-#include "version.h"
 #include "log.h"
 
 #include "../include/ArduinoJson-v7.4.3.h"

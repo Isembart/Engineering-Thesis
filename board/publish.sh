@@ -7,7 +7,14 @@ host="$1"
 dir="$2"
 cd "$(dirname "$0")"
 
-version=$(awk '/#define FIRMWARE_VERSION/ {print $3}' src/version.h)
+# The version is the commit count (see platformio.ini), so the build must match a commit
+if [ -n "$(git status --porcelain -- .)" ]; then
+    echo "Uncommitted changes in board/, commit them before publishing:" >&2
+    git status --short -- . >&2
+    exit 1
+fi
+
+version=$(git rev-list --count HEAD)
 pio run
 
 # Upload under a temporary name, boards only ever see complete <version>.bin files

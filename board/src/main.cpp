@@ -11,7 +11,6 @@
 #include <string.h>
 #include <bluetooth_functions.h>
 #include <esp_ota_ops.h>
-#include "version.h"
 #include "log.h"
 
 ClientsBuffer clientsBuffer;
