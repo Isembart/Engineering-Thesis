@@ -6,6 +6,7 @@
 #include <BLEAdvertisedDevice.h>
 #include <BLEScan.h>
 #include <crypto_functions.h>
+#include "log.h"
 
 namespace
 {
@@ -26,9 +27,7 @@ void scan_bluetooth_devices()
   const uint32_t scanDuration = durationSeconds == 0 ? 1 : durationSeconds;
 
   g_bleScan->clearResults();
-  Serial.print("Starting BLE scan for ");
-  Serial.print(scanDuration);
-  Serial.println(" seconds");
+  LOG("BLE", "Scanning for %u s", (unsigned)scanDuration);
 
   BLEScanResults *scanResults = g_bleScan->start(scanDuration, false);
   if (scanResults)
@@ -52,12 +51,8 @@ void scan_bluetooth_devices()
       devicesCounted++;
     }
 
-    Serial.print("BLE scan completed, devices seen: ");
-    Serial.print(scanResults->getCount());
-    Serial.print(", devices counted (RSSI >= ");
-    Serial.print(g_boardSettings->minRSSIBLE);
-    Serial.print("): ");
-    Serial.println(devicesCounted);
+    LOG("BLE", "Scan done: %d devices seen, %d counted (RSSI >= %d)",
+        scanResults->getCount(), devicesCounted, g_boardSettings->minRSSIBLE);
   }
 
   g_bleScan->clearResults();

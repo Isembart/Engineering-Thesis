@@ -12,6 +12,7 @@
 #include <bluetooth_functions.h>
 #include <esp_ota_ops.h>
 #include "version.h"
+#include "log.h"
 
 ClientsBuffer clientsBuffer;
 
@@ -102,8 +103,12 @@ void setup()
     boardSettings.load();
     provisioning_window();
 
-    Serial.print("Firmware version: ");
-    Serial.println(FIRMWARE_VERSION);
+    LOG_BANNER("CrowdMonitor firmware v%d%s", FIRMWARE_VERSION,
+               firmware_pending_verify() ? " (just installed, not confirmed yet)" : "");
+    LOG("BOOT", "Board MAC: %llu", (unsigned long long)get_mac_address());
+    LOG("BOOT", "Server:    %s", boardSettings.ServerEndpoint.c_str());
+    LOG("BOOT", "WiFi:      %s%s", boardSettings.wifiSSID.c_str(), boardSettings.peap ? " (PEAP)" : "");
+    LOG("BOOT", "Antenna:   %s", boardSettings.externalAntenna ? "external" : "internal");
 
     init_bluetooth_sniffer(&clientsBuffer, &boardSettings);
     init_wifi_sniffer(&clientsBuffer, &boardSettings);
@@ -111,12 +116,13 @@ void setup()
     if (boardSettings.externalAntenna)
     {
         digitalWrite(EXTERNAL_ANTENNA_PIN, HIGH); // Set GPIO14 high to use the external antenna
-        Serial.println("External antenna enabled");
     }
 }
 
 void loop()
 {
+    static unsigned long cycle = 0;
+    LOG_SECTION("Cycle %lu: scanning", ++cycle);
 
     start_wifi_sniffer();
 
@@ -129,13 +135,13 @@ void loop()
             delay(boardSettings.WifiChannelScanTimeMS);
             hop_wifi_channel();
         }
-        Serial.print("WiFi scan completed, devices seen: ");
-        Serial.println(clientsBuffer.getClientCount() - lastDeviceCount);
+        LOG("SCAN", "WiFi scan done: %d new devices", clientsBuffer.getClientCount() - lastDeviceCount);
 
         scan_bluetooth_devices();
     }
 
     // SEND DATA
+    LOG_SECTION("Cycle %lu: reporting", cycle);
     bool connected = false;
     if (boardSettings.peap)
     {
@@ -146,27 +152,28 @@ void loop()
         connected = connect_to_wifi(boardSettings.wifiSSID.c_str(), boardSettings.wifiPassword.c_str());
     }
 
-    const auto reportedDevices = clientsBuffer.getFilteredClients(boardSettings.MinimalEncounterCount).size();
-
     bool serverReached = false;
     if (connected)
     {
         send_data_to_server(clientsBuffer);
-        Serial.print("Reported devices: ");
-        Serial.println(reportedDevices);
 
         // Confirms this firmware and, when a newer one is published, installs it and restarts
         serverReached = check_firmware_update();
     }
     else
     {
-        Serial.println("Skipping upload because WiFi is not connected");
+        LOG("DATA", "Skipping upload because WiFi is not connected");
     }
 
     static uint8_t unconfirmedCycles = 0;
-    if (!serverReached && firmware_pending_verify() && ++unconfirmedCycles >= MAX_UNCONFIRMED_CYCLES)
+    if (!serverReached && firmware_pending_verify() && ++unconfirmedCycles < MAX_UNCONFIRMED_CYCLES)
     {
-        Serial.println("Updated firmware could not reach the server, rolling back");
+        LOG("OTA", "Firmware v%d not confirmed yet, server unreachable (cycle %d of %d before rollback)",
+            FIRMWARE_VERSION, unconfirmedCycles, MAX_UNCONFIRMED_CYCLES);
+    }
+    else if (!serverReached && firmware_pending_verify())
+    {
+        LOG_BANNER("ROLLING BACK: firmware v%d could not reach the server", FIRMWARE_VERSION);
         Serial.flush();
         esp_ota_mark_app_invalid_rollback_and_reboot();
     }
