@@ -21,3 +21,4 @@ uint64_t get_mac_address();
 
 bool send_settings_to_server();
 bool get_settings_from_server();
+bool check_firmware_update();

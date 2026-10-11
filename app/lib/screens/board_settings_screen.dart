@@ -148,18 +148,22 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
     );
   }
 
-  String? _requiredInt(String? value) {
+  String? _intInRange(String? value, int min, int max) {
     if (value == null || value.trim().isEmpty) return 'Required';
-    if (int.tryParse(value.trim()) == null) return 'Enter an integer';
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null) return 'Enter an integer';
+    if (parsed < min || parsed > max) return 'Must be between $min and $max';
     return null;
   }
 
+  // Bounds mirror the board (BoardSettings::tunablesInBounds) and the server (BoardSettingsDTO::validate)
   Widget _intField({
     required TextEditingController controller,
     required String label,
-    String? helper,
-    bool allowNegative = false,
+    required int min,
+    required int max,
   }) {
+    final allowNegative = min < 0;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
@@ -170,8 +174,8 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
             allowNegative ? RegExp(r'^-?\d*') : RegExp(r'\d*'),
           ),
         ],
-        decoration: _fieldDecoration(label, helper: helper),
-        validator: _requiredInt,
+        decoration: _fieldDecoration(label, helper: '$min to $max'),
+        validator: (value) => _intInRange(value, min, max),
       ),
     );
   }
@@ -224,39 +228,51 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: Text(
-                'No settings yet. Form is filled with defaults from config.h.example.',
+                'No settings yet. Form is filled with the board defaults.',
                 style: TextStyle(color: Colors.grey.shade700),
               ),
             ),
           _intField(
             controller: _scansPerSendController,
             label: 'Scans per send',
+            min: 1,
+            max: 10,
           ),
           _intField(
             controller: _wifiScanTimeMsController,
             label: 'WiFi scan time (ms)',
+            min: 1000,
+            max: 5 * 60 * 1000,
           ),
           _intField(
             controller: _bluetoothScanTimeMsController,
             label: 'Bluetooth scan time (ms)',
+            min: 1000,
+            max: 60 * 1000,
           ),
           _intField(
             controller: _wifiChannelScanTimeMsController,
             label: 'WiFi channel scan time (ms)',
+            min: 50,
+            max: 5000,
           ),
           _intField(
             controller: _minimalEncounterCountController,
             label: 'Minimal encounter count',
+            min: 1,
+            max: 100,
           ),
           _intField(
             controller: _minRssiController,
             label: 'Min RSSI WiFi (dBm)',
-            allowNegative: true,
+            min: -100,
+            max: 0,
           ),
           _intField(
             controller: _minRssiBleController,
             label: 'Min RSSI BLE (dBm)',
-            allowNegative: true,
+            min: -100,
+            max: 0,
           ),
           const SizedBox(height: 8),
           SizedBox(

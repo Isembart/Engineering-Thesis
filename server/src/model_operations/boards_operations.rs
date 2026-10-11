@@ -33,6 +33,20 @@ pub async fn rename_board(
     board.update(db).await
 }
 
+/// Records the firmware version a board reports. Unknown boards are ignored.
+pub async fn set_firmware_version(
+    mac_address: i64,
+    version: i64,
+    db: &DatabaseConnection,
+) -> Result<(), sea_orm::DbErr> {
+    boards::Entity::update_many()
+        .col_expr(boards::Column::FirmwareVersion, Expr::value(version))
+        .filter(boards::Column::BoardMac.eq(mac_address))
+        .exec(db)
+        .await?;
+    Ok(())
+}
+
 pub async fn get_all_boards(db: &DatabaseConnection) -> Result<Vec<boards::Model>, sea_orm::DbErr> {
     boards::Entity::find().all(db).await
 }

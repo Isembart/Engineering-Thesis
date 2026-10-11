@@ -9,6 +9,7 @@ use serde_json::json;
 #[derive(Debug)]
 pub enum AppError {
     NotFound(String),
+    BadRequest(String),
     Duplicate(String),
     Internal(String),
 }
@@ -19,6 +20,10 @@ impl IntoResponse for AppError {
             AppError::NotFound(msg) => {
                 eprintln!("AppError: NotFound - {}", msg);
                 (StatusCode::NOT_FOUND, msg.clone())
+            }
+            AppError::BadRequest(msg) => {
+                eprintln!("AppError: BadRequest - {}", msg);
+                (StatusCode::BAD_REQUEST, msg.clone())
             }
             AppError::Internal(msg) => {
                 eprintln!("AppError Internal: {}", msg);

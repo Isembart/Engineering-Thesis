@@ -8,8 +8,15 @@
 #include <crypto_functions.h>
 #include <HTTPClient.h>
 #include <board_settings.h>
+#include <Update.h>
+#include <Preferences.h>
+#include <esp_ota_ops.h>
+#include "log.h"
 
 #include "../include/ArduinoJson-v7.4.3.h"
+
+// How many times a single published firmware version may be downloaded and tried
+#define OTA_MAX_TRIES 3
 
 namespace
 {
@@ -65,7 +72,7 @@ void start_wifi_sniffer()
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous_rx_cb(wifi_packet_handler));
     ESP_ERROR_CHECK(esp_wifi_set_promiscuous(true));
 
-    Serial.println("Promiscuous sniffer started");
+    LOG("SCAN", "WiFi sniffer started");
 }
 
 void hop_wifi_channel()
@@ -83,8 +90,7 @@ void hop_wifi_channel()
     esp_err_t set_channel_result = esp_wifi_set_channel(new_channel, WIFI_SECOND_CHAN_NONE);
     if (set_channel_result != ESP_OK)
     {
-        Serial.print("Failed to switch WiFi channel, err=");
-        Serial.println((int)set_channel_result);
+        LOG("SCAN", "Failed to switch WiFi channel, err=%d", (int)set_channel_result);
         return;
     }
 
@@ -142,7 +148,8 @@ bool connect_to_wifi(const char *ssid, const char *password)
     WiFi.disconnect(false);
     WiFi.mode(WIFI_STA);
 
-    Serial.print(F("Connecting to WiFi .."));
+    LOG_PREFIX("WIFI");
+    Serial.printf("Connecting to %s ", ssid);
 
     WiFi.begin(ssid, password); // last parameter is to enable fast reconnection
     int attempts = 0;
@@ -156,12 +163,12 @@ bool connect_to_wifi(const char *ssid, const char *password)
     if (WiFi.status() == WL_CONNECTED)
     {
         Serial.println();
-        Serial.print(F("Connected to "));
-        Serial.println(ssid);
+        LOG("WIFI", "Connected to %s", ssid);
         return true;
     }
 
-    Serial.println(F("WiFi connection timed out"));
+    Serial.println();
+    LOG("WIFI", "Connection to %s timed out", ssid);
     return false;
 }
 
@@ -171,7 +178,8 @@ bool connect_to_wifi_peap(const char *ssid, const char *identity, const char *us
     esp_wifi_set_promiscuous_rx_cb(NULL);
     WiFi.disconnect(false);
     WiFi.mode(WIFI_STA);
-    Serial.print(F("Connecting to PEAP WiFi .."));
+    LOG_PREFIX("WIFI");
+    Serial.printf("Connecting to %s (PEAP) ", ssid);
     WiFi.begin(ssid, WPA2_AUTH_PEAP, identity, username, password);
     int attempts = 0;
     while (WiFi.status() != WL_CONNECTED && attempts < 20)
@@ -184,12 +192,12 @@ bool connect_to_wifi_peap(const char *ssid, const char *identity, const char *us
     if (WiFi.status() == WL_CONNECTED)
     {
         Serial.println();
-        Serial.print(F("Connected to "));
-        Serial.println(ssid);
+        LOG("WIFI", "Connected to %s", ssid);
         return true;
     }
 
-    Serial.println(F("WiFi connection timed out"));
+    Serial.println();
+    LOG("WIFI", "Connection to %s timed out", ssid);
     return false;
 }
 
@@ -209,7 +217,7 @@ bool send_data_to_server(ClientsBuffer &clientsBuffer)
 
     if (!http.begin(url.c_str()))
     {
-        Serial.println("Failed to parse URL");
+        LOG("HTTP", "Invalid server URL: %s", url.c_str());
         http.end();
         return false;
     }
@@ -221,13 +229,11 @@ bool send_data_to_server(ClientsBuffer &clientsBuffer)
 
     if (success)
     {
-        Serial.print("Data sent successfully. HTTP Response code: ");
-        Serial.println(httpResponseCode);
+        LOG("DATA", "Reported %u devices (HTTP %d)", (unsigned)filteredClients.size(), httpResponseCode);
     }
     else
     {
-        Serial.print("Failed to send data to server, HTTP code: ");
-        Serial.println(httpResponseCode);
+        LOG("DATA", "Failed to report devices (HTTP %d)", httpResponseCode);
     }
 
     http.end();
@@ -239,15 +245,13 @@ bool send_settings_to_server()
     HTTPClient http;
     http.setTimeout(10000);
 
-    Serial.println("mac address str: " + get_mac_address_str());
-
     String url = String(g_boardSettings->ServerEndpoint) +
                  "/board-settings" +
                  "?mac_address=" + get_mac_address_str();
 
     if (!http.begin(url.c_str()))
     {
-        Serial.println("Failed to parse URL");
+        LOG("HTTP", "Invalid server URL: %s", url.c_str());
         return false;
     }
 
@@ -278,18 +282,15 @@ bool send_settings_to_server()
     bool success = (httpResponseCode >= 200 && httpResponseCode < 300);
     if (httpResponseCode == 200)
     {
-        Serial.print("Settings uploaded successfully");
-        Serial.println(httpResponseCode);
+        LOG("CONF", "Default settings uploaded to the server (HTTP %d)", httpResponseCode);
     }
     else if (httpResponseCode == 409)
     {
-        Serial.print("Settings already exist on the server. HTTP Response code: ");
-        Serial.println(httpResponseCode);
+        // expected on every cycle but the first, nothing worth printing
     }
     else
     {
-        Serial.print("Failed to send settings to server, HTTP code: ");
-        Serial.println(httpResponseCode);
+        LOG("CONF", "Failed to upload settings (HTTP %d)", httpResponseCode);
     }
 
     http.end();
@@ -307,7 +308,7 @@ bool get_settings_from_server()
 
     if (!http.begin(url.c_str()))
     {
-        Serial.println("Failed to parse URL");
+        LOG("HTTP", "Invalid server URL: %s", url.c_str());
         return false;
     }
 
@@ -316,33 +317,147 @@ bool get_settings_from_server()
     bool success = (httpResponseCode >= 200 && httpResponseCode < 300);
     if (httpResponseCode == 200)
     {
-        Serial.println("Settings downloaded successfully. Applying...");
-
         String payload = http.getString();
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, payload);
 
-        Serial.println("New settings from server:");
-        serializeJsonPretty(doc, Serial);
-        g_boardSettings->ScansPerSend = doc["scans_per_send"] | g_boardSettings->ScansPerSend;
-        g_boardSettings->WifiScanTimeMS = doc["wifi_scan_time_ms"] | g_boardSettings->WifiScanTimeMS;
-        g_boardSettings->BluetoothScanTimeMS = doc["bluetooth_scan_time_ms"] | g_boardSettings->BluetoothScanTimeMS;
-        g_boardSettings->WifiChannelScanTimeMS = doc["wifi_channel_scan_time_ms"] | g_boardSettings->WifiChannelScanTimeMS;
-        g_boardSettings->MinimalEncounterCount = doc["minimal_encounter_count"] | g_boardSettings->MinimalEncounterCount;
-        g_boardSettings->minRSSI = doc["min_rssi"] | g_boardSettings->minRSSI;
-        g_boardSettings->minRSSIBLE = doc["min_rssi_ble"] | g_boardSettings->minRSSIBLE;
+        BoardSettings updated = *g_boardSettings;
+        updated.ScansPerSend = doc["scans_per_send"] | g_boardSettings->ScansPerSend;
+        updated.WifiScanTimeMS = doc["wifi_scan_time_ms"] | g_boardSettings->WifiScanTimeMS;
+        updated.BluetoothScanTimeMS = doc["bluetooth_scan_time_ms"] | g_boardSettings->BluetoothScanTimeMS;
+        updated.WifiChannelScanTimeMS = doc["wifi_channel_scan_time_ms"] | g_boardSettings->WifiChannelScanTimeMS;
+        updated.MinimalEncounterCount = doc["minimal_encounter_count"] | g_boardSettings->MinimalEncounterCount;
+        updated.minRSSI = doc["min_rssi"] | g_boardSettings->minRSSI;
+        updated.minRSSIBLE = doc["min_rssi_ble"] | g_boardSettings->minRSSIBLE;
+
+        // Settings now survive a reboot, so a bad value must never be accepted
+        if (!error && updated.tunablesInBounds())
+        {
+            *g_boardSettings = updated;
+            g_boardSettings->saveTunables();
+            LOG("CONF", "scans=%u wifi=%ums ble=%ums channel=%ums min_encounters=%u rssi=%d rssi_ble=%d",
+                updated.ScansPerSend, updated.WifiScanTimeMS, updated.BluetoothScanTimeMS,
+                updated.WifiChannelScanTimeMS, updated.MinimalEncounterCount, updated.minRSSI, updated.minRSSIBLE);
+        }
+        else
+        {
+            LOG("CONF", "Settings from server are invalid or out of bounds, keeping the current ones");
+        }
     }
     else if (httpResponseCode == 404)
     {
-        Serial.print("Settings not found on the server, HTTP Response code: ");
-        Serial.println(httpResponseCode);
+        LOG("CONF", "No settings on the server yet (HTTP %d)", httpResponseCode);
     }
     else
     {
-        Serial.print("Failed to download settings from server, HTTP code: ");
-        Serial.println(httpResponseCode);
+        LOG("CONF", "Failed to download settings (HTTP %d)", httpResponseCode);
     }
 
     http.end();
     return success;
+};
+
+// Asks the server for the latest firmware version and reports the running one.
+// Returns true when the server answered, which is the proof that this firmware can reach
+// the server and so can still be updated: only then is a freshly installed firmware confirmed.
+// When a newer version is published it is installed and the board restarts.
+bool check_firmware_update()
+{
+    HTTPClient http;
+    http.setTimeout(10000);
+
+    String url = g_boardSettings->ServerEndpoint +
+                 "/firmware/latest" +
+                 "?mac_address=" + get_mac_address_str() +
+                 "&version=" + String(FIRMWARE_VERSION);
+
+    if (!http.begin(url.c_str()))
+    {
+        LOG("HTTP", "Invalid server URL: %s", url.c_str());
+        return false;
+    }
+
+    int httpResponseCode = http.GET();
+    JsonDocument doc;
+    // Require our own JSON, a captive portal answering 200 must not count as the server
+    bool answered = httpResponseCode == 200 &&
+                    !deserializeJson(doc, http.getString()) &&
+                    doc["version"].is<long>();
+    http.end();
+
+    if (!answered)
+    {
+        LOG("OTA", "Firmware check failed (HTTP %d)", httpResponseCode);
+        return false;
+    }
+
+    // No-op unless this firmware was just installed and is still pending verification
+    esp_ota_img_states_t state;
+    if (esp_ota_get_state_partition(esp_ota_get_running_partition(), &state) == ESP_OK &&
+        state == ESP_OTA_IMG_PENDING_VERIFY)
+    {
+        LOG_BANNER("FIRMWARE v%d CONFIRMED, server reached", FIRMWARE_VERSION);
+    }
+    esp_ota_mark_app_valid_cancel_rollback();
+
+    const long latestVersion = doc["version"];
+    if (latestVersion <= FIRMWARE_VERSION)
+    {
+        LOG("OTA", "Firmware v%d is up to date", FIRMWARE_VERSION);
+        return true;
+    }
+
+    // A version that keeps failing (rolled back, corrupt, mislabeled file) must not be
+    // re-downloaded and re-flashed every cycle forever.
+    Preferences prefs;
+    prefs.begin("ota", false);
+    int tries = prefs.getLong("version", 0) == latestVersion ? prefs.getInt("tries", 0) : 0;
+    if (tries >= OTA_MAX_TRIES)
+    {
+        prefs.end();
+        LOG("OTA", "Firmware v%ld is published but failed %d times, staying on v%d", latestVersion, OTA_MAX_TRIES, FIRMWARE_VERSION);
+        return true;
+    }
+    prefs.putLong("version", latestVersion);
+    prefs.putInt("tries", tries + 1);
+    prefs.end();
+
+    LOG_BANNER("INSTALLING FIRMWARE v%ld (running v%d, attempt %d of %d)", latestVersion, FIRMWARE_VERSION, tries + 1, OTA_MAX_TRIES);
+
+    // ponytail: the image is only as trustworthy as the connection to ServerEndpoint (use https),
+    // switch to signed images / secure boot if the boards ever leave a trusted setup.
+    url = g_boardSettings->ServerEndpoint + "/firmware/bin/" + String(latestVersion) + ".bin";
+    if (!http.begin(url.c_str()))
+    {
+        LOG("HTTP", "Invalid server URL: %s", url.c_str());
+        return true;
+    }
+
+    httpResponseCode = http.GET();
+    const int size = http.getSize();
+    LOG("OTA", "Downloading %d bytes, do not power off", size);
+    if (httpResponseCode != 200 || size <= 0)
+    {
+        LOG_BANNER("FIRMWARE UPDATE FAILED: download error (HTTP %d)", httpResponseCode);
+        http.end();
+        return true;
+    }
+
+    // Update.end() verifies the image, so a truncated or corrupt download is never booted
+    bool installed = Update.begin(size) &&
+                     Update.writeStream(http.getStream()) == (size_t)size &&
+                     Update.end();
+    http.end();
+
+    if (!installed)
+    {
+        LOG_BANNER("FIRMWARE UPDATE FAILED: %s", Update.errorString());
+        Update.abort();
+        return true;
+    }
+
+    LOG_BANNER("FIRMWARE v%ld INSTALLED, restarting", latestVersion);
+    Serial.flush();
+    ESP.restart();
+    return true;
 };
