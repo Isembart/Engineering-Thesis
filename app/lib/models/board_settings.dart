@@ -19,7 +19,7 @@ class BoardSettings {
     required this.minRssiBle,
   });
 
-  /// Defaults from `board/src/config.h.example` / migration defaults.
+  /// Same defaults as the board firmware (`board/lib/board_settings/src/board_settings.h`).
   factory BoardSettings.defaults() {
     return const BoardSettings(
       scansPerSend: 1,
