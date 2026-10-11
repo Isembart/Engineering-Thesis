@@ -110,6 +110,11 @@ class _BoardCardState extends State<BoardCard> {
                 color: Colors.black87,
               ),
             ),
+            if (widget.board.firmwareVersion != null)
+              Text(
+                'Firmware v${widget.board.firmwareVersion}',
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
             const SizedBox(height: 12),
             if (_isLoading)
               const Center(child: CircularProgressIndicator())

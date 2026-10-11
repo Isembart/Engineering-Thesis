@@ -11,6 +11,7 @@ pub struct Model {
     #[sea_orm(unique)]
     pub board_mac: i64,
     pub name: Option<String>,
+    pub firmware_version: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

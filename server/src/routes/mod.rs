@@ -2,7 +2,10 @@ mod board_routes;
 
 mod board_settings_routes;
 
+mod firmware_routes;
+
 use crate::db::DbPool;
+use tower_http::services::ServeDir;
 use axum::{
     routing::{get, post, put},
     Router,
@@ -29,5 +32,11 @@ pub fn router() -> Router<DbPool> {
         .route(
             "/board-settings",
             put(board_settings_routes::update_board_settings),
+        )
+        // firmware updates: boards poll /firmware/latest, then download /firmware/bin/<version>.bin
+        .route("/firmware/latest", get(firmware_routes::latest_firmware))
+        .nest_service(
+            "/firmware/bin",
+            ServeDir::new(firmware_routes::firmware_dir()),
         )
 }

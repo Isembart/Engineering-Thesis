@@ -1,0 +1,10 @@
+{
+  "wifi_ssid": "Wifi SSID",
+  "wifi_password": "WIFI_PASSWORD1234",
+  "peap": false,
+  "peap_identity": "peap@peap.com",
+  "peap_username": "peap@peap.com",
+  "peap_password": "password1234",
+  "server_endpoint": "http://192.168.68.55:3000",
+  "external_antenna": false
+}

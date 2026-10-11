@@ -8,8 +8,15 @@
 #include <crypto_functions.h>
 #include <HTTPClient.h>
 #include <board_settings.h>
+#include <Update.h>
+#include <Preferences.h>
+#include <esp_ota_ops.h>
+#include "version.h"
 
 #include "../include/ArduinoJson-v7.4.3.h"
+
+// How many times a single published firmware version may be downloaded and tried
+#define OTA_MAX_TRIES 3
 
 namespace
 {
@@ -324,13 +331,26 @@ bool get_settings_from_server()
 
         Serial.println("New settings from server:");
         serializeJsonPretty(doc, Serial);
-        g_boardSettings->ScansPerSend = doc["scans_per_send"] | g_boardSettings->ScansPerSend;
-        g_boardSettings->WifiScanTimeMS = doc["wifi_scan_time_ms"] | g_boardSettings->WifiScanTimeMS;
-        g_boardSettings->BluetoothScanTimeMS = doc["bluetooth_scan_time_ms"] | g_boardSettings->BluetoothScanTimeMS;
-        g_boardSettings->WifiChannelScanTimeMS = doc["wifi_channel_scan_time_ms"] | g_boardSettings->WifiChannelScanTimeMS;
-        g_boardSettings->MinimalEncounterCount = doc["minimal_encounter_count"] | g_boardSettings->MinimalEncounterCount;
-        g_boardSettings->minRSSI = doc["min_rssi"] | g_boardSettings->minRSSI;
-        g_boardSettings->minRSSIBLE = doc["min_rssi_ble"] | g_boardSettings->minRSSIBLE;
+        BoardSettings updated = *g_boardSettings;
+        updated.ScansPerSend = doc["scans_per_send"] | g_boardSettings->ScansPerSend;
+        updated.WifiScanTimeMS = doc["wifi_scan_time_ms"] | g_boardSettings->WifiScanTimeMS;
+        updated.BluetoothScanTimeMS = doc["bluetooth_scan_time_ms"] | g_boardSettings->BluetoothScanTimeMS;
+        updated.WifiChannelScanTimeMS = doc["wifi_channel_scan_time_ms"] | g_boardSettings->WifiChannelScanTimeMS;
+        updated.MinimalEncounterCount = doc["minimal_encounter_count"] | g_boardSettings->MinimalEncounterCount;
+        updated.minRSSI = doc["min_rssi"] | g_boardSettings->minRSSI;
+        updated.minRSSIBLE = doc["min_rssi_ble"] | g_boardSettings->minRSSIBLE;
+
+        // Settings now survive a reboot, so a bad value must never be accepted
+        if (!error && updated.tunablesInBounds())
+        {
+            *g_boardSettings = updated;
+            g_boardSettings->saveTunables();
+        }
+        else
+        {
+            Serial.println();
+            Serial.println("Settings from server are invalid or out of bounds, keeping the current ones");
+        }
     }
     else if (httpResponseCode == 404)
     {
@@ -345,4 +365,106 @@ bool get_settings_from_server()
 
     http.end();
     return success;
+};
+
+// Asks the server for the latest firmware version and reports the running one.
+// Returns true when the server answered, which is the proof that this firmware can reach
+// the server and so can still be updated: only then is a freshly installed firmware confirmed.
+// When a newer version is published it is installed and the board restarts.
+bool check_firmware_update()
+{
+    HTTPClient http;
+    http.setTimeout(10000);
+
+    String url = g_boardSettings->ServerEndpoint +
+                 "/firmware/latest" +
+                 "?mac_address=" + get_mac_address_str() +
+                 "&version=" + String(FIRMWARE_VERSION);
+
+    if (!http.begin(url.c_str()))
+    {
+        Serial.println("Failed to parse URL");
+        return false;
+    }
+
+    int httpResponseCode = http.GET();
+    JsonDocument doc;
+    // Require our own JSON, a captive portal answering 200 must not count as the server
+    bool answered = httpResponseCode == 200 &&
+                    !deserializeJson(doc, http.getString()) &&
+                    doc["version"].is<long>();
+    http.end();
+
+    if (!answered)
+    {
+        Serial.print("Firmware check failed, HTTP code: ");
+        Serial.println(httpResponseCode);
+        return false;
+    }
+
+    // No-op unless this firmware was just installed and is still pending verification
+    esp_ota_mark_app_valid_cancel_rollback();
+
+    const long latestVersion = doc["version"];
+    if (latestVersion <= FIRMWARE_VERSION)
+    {
+        return true;
+    }
+
+    // A version that keeps failing (rolled back, corrupt, mislabeled file) must not be
+    // re-downloaded and re-flashed every cycle forever.
+    Preferences prefs;
+    prefs.begin("ota", false);
+    int tries = prefs.getLong("version", 0) == latestVersion ? prefs.getInt("tries", 0) : 0;
+    if (tries >= OTA_MAX_TRIES)
+    {
+        prefs.end();
+        Serial.print("Giving up on firmware version ");
+        Serial.println(latestVersion);
+        return true;
+    }
+    prefs.putLong("version", latestVersion);
+    prefs.putInt("tries", tries + 1);
+    prefs.end();
+
+    Serial.print("Downloading firmware version ");
+    Serial.println(latestVersion);
+
+    // ponytail: the image is only as trustworthy as the connection to ServerEndpoint (use https),
+    // switch to signed images / secure boot if the boards ever leave a trusted setup.
+    url = g_boardSettings->ServerEndpoint + "/firmware/bin/" + String(latestVersion) + ".bin";
+    if (!http.begin(url.c_str()))
+    {
+        Serial.println("Failed to parse URL");
+        return true;
+    }
+
+    httpResponseCode = http.GET();
+    const int size = http.getSize();
+    if (httpResponseCode != 200 || size <= 0)
+    {
+        Serial.print("Failed to download firmware, HTTP code: ");
+        Serial.println(httpResponseCode);
+        http.end();
+        return true;
+    }
+
+    // Update.end() verifies the image, so a truncated or corrupt download is never booted
+    bool installed = Update.begin(size) &&
+                     Update.writeStream(http.getStream()) == (size_t)size &&
+                     Update.end();
+    http.end();
+
+    if (!installed)
+    {
+        Serial.print("Firmware update failed: ");
+        Serial.println(Update.errorString());
+        Update.abort();
+        return true;
+    }
+
+    Serial.println("Firmware installed, restarting");
+    Serial.flush();
+    ESP.restart();
+    return true;
 };
