@@ -1,12 +1,11 @@
 #!/bin/bash
-# Build the firmware and publish it to the server's FIRMWARE_DIR.
-# Usage: ./publish.sh user@host /path/to/server/firmware [ssh-port]
+# Build the firmware and save it as <version>.bin, the name the server expects in its
+# FIRMWARE_DIR. Copy the file there to release it to the boards.
+# Usage: ./publish.sh [output-dir]     (default: board/.pio/release)
 set -euo pipefail
 
-host="$1"
-dir="$2"
-port="${3:-22}"
 cd "$(dirname "$0")"
+out="${1:-.pio/release}"
 
 # The version is the commit count (see platformio.ini), so the build must match a commit
 if [ -n "$(git status --porcelain -- .)" ]; then
@@ -18,7 +17,6 @@ fi
 version=$(git rev-list --count HEAD)
 pio run
 
-# Upload under a temporary name, boards only ever see complete <version>.bin files
-scp -P "$port" .pio/build/seeed_xiao_esp32_c6/firmware.bin "$host:$dir/$version.bin.part"
-ssh -p "$port" "$host" "mv '$dir/$version.bin.part' '$dir/$version.bin'"
-echo "Published firmware version $version"
+mkdir -p "$out"
+cp .pio/build/seeed_xiao_esp32_c6/firmware.bin "$out/$version.bin"
+echo "Firmware version $version saved to $(realpath "$out/$version.bin")"
