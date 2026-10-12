@@ -22,6 +22,7 @@ namespace
         {"peap_username", "peap_user"},
         {"peap_password", "peap_pass"},
         {"server_endpoint", "endpoint"},
+        {"board_token", "token"},
     };
     const ProvisioningKey BOOL_KEYS[] = {
         {"peap", "peap"},
@@ -70,9 +71,11 @@ void BoardSettings::load()
         peapUsername = prefs.getString("peap_user");
         peapPassword = prefs.getString("peap_pass");
         ServerEndpoint = prefs.getString("endpoint");
+        boardToken = prefs.getString("token");
         externalAntenna = prefs.getBool("antenna", false);
         prefs.end();
-        provisioned = ServerEndpoint.length() > 0 && wifiSSID.length() > 0;
+        // A board without a token cannot talk to the server, so it counts as unprovisioned
+        provisioned = ServerEndpoint.length() > 0 && wifiSSID.length() > 0 && boardToken.length() > 0;
     }
 }
 
@@ -129,9 +132,10 @@ const char *BoardSettings::provision(const String &json)
         }
     }
     if (!String(doc["server_endpoint"].as<const char *>()).startsWith("http") ||
-        strlen(doc["wifi_ssid"].as<const char *>()) == 0)
+        strlen(doc["wifi_ssid"].as<const char *>()) == 0 ||
+        strlen(doc["board_token"].as<const char *>()) == 0)
     {
-        return "server_endpoint must be an http(s) URL and wifi_ssid must not be empty";
+        return "server_endpoint must be an http(s) URL, wifi_ssid and board_token must not be empty";
     }
 
     Preferences prefs;

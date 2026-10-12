@@ -1,7 +1,7 @@
 info:
   name: Get Boards Data
   type: http
-  seq: 2
+  seq: 4
 
 http:
   method: GET
@@ -14,6 +14,12 @@ http:
       value: "15"
       type: query
   auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
 
 settings:
   encodeUrl: true

@@ -1,5 +1,7 @@
 opencollection: 1.0.0
 
+# These requests write to the server they point at (board MAC 1234, rename, settings).
+# Do not run the collection against the production database.
 info:
   name: EngineeringThesisApiTests
 config:

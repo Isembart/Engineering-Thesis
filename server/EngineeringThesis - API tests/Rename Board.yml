@@ -1,25 +1,30 @@
 info:
-  name: Upload Board Data
+  name: Rename Board
   type: http
-  seq: 5
+  seq: 6
 
 http:
-  method: POST
-  url: "{{host}}/upload-board-data"
+  method: PUT
+  url: "{{host}}/rename-board"
+  headers:
+    - name: Content-Type
+      value: application/json
   body:
     type: json
     data: |-
       {
         "mac_address": 1234,
-        "clients_count": 5
+        "name": "api-test"
       }
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{admin_token}}"
 
 runtime:
   assertions:
     - expression: res.status
       operator: eq
-      value: "409"
+      value: "200"
 
 settings:
   encodeUrl: true

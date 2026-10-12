@@ -20,6 +20,8 @@ public:
     // Never compiled into the firmware and never changed by the server or an OTA update. ---
     bool provisioned = false;
     String ServerEndpoint;
+    // The server's BOARD_TOKEN, sent with every request
+    String boardToken;
     bool externalAntenna = false;
     String wifiSSID;
     String wifiPassword;

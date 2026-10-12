@@ -1,0 +1,37 @@
+info:
+  name: Update Settings With Board Token
+  type: http
+  seq: 5
+
+http:
+  method: PUT
+  url: "{{host}}/board-settings?mac_address=1234"
+  auth:
+    type: bearer
+    token: "{{board_token}}"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "scans_per_send": 1,
+        "wifi_scan_time_ms": 40000,
+        "bluetooth_scan_time_ms": 12000,
+        "wifi_channel_scan_time_ms": 200,
+        "minimal_encounter_count": 2,
+        "min_rssi": -75,
+        "min_rssi_ble": -85
+      }
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "401"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

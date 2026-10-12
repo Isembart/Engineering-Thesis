@@ -1,25 +1,24 @@
 info:
-  name: Add board with name
+  name: Upload Without Token
   type: http
-  seq: 4
+  seq: 1
 
 http:
   method: POST
-  url: "{{host}}/add-board"
+  url: "{{host}}/upload-board-data"
+  auth: inherit
   body:
     type: json
     data: |-
       {
         "mac_address": 1234,
-        "name": "testName"
+        "clients_count": 5
       }
-  auth: inherit
-
 runtime:
   assertions:
     - expression: res.status
       operator: eq
-      value: "409"
+      value: "401"
 
 settings:
   encodeUrl: true

@@ -1,7 +1,7 @@
 info:
   name: Get Board Settings
   type: http
-  seq: 2
+  seq: 3
 
 http:
   method: GET
@@ -10,7 +10,15 @@ http:
     - name: mac_address
       value: "1234"
       type: query
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{admin_token}}"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
 
 settings:
   encodeUrl: true

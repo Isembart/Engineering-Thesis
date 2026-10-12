@@ -1,3 +1,4 @@
+mod auth;
 mod db;
 mod error;
 mod model;
@@ -14,6 +15,11 @@ use migration::{Migrator, MigratorTrait};
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+
+    if let Err(e) = auth::init() {
+        eprintln!("{e} (in .env or the environment)");
+        std::process::exit(1);
+    }
 
     let database_url = std::env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set in .env file or environment variable");
@@ -36,7 +42,7 @@ async fn main() {
         CorsLayer::new()
             .allow_origin(AllowOrigin::list(origins))
             .allow_methods([Method::GET, Method::POST, Method::PUT, Method::OPTIONS])
-            .allow_headers([header::CONTENT_TYPE])
+            .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
     } else {
         CorsLayer::new()
             .allow_origin(Any)
@@ -49,5 +55,6 @@ async fn main() {
     let addr = std::env::var("SERVER_ADDRESS").unwrap_or_else(|_| "0.0.0.0:3000".into());
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     println!("Server running at http://{}", &addr);
+    auth::print_admin_token();
     axum::serve(listener, app).await.unwrap();
 }

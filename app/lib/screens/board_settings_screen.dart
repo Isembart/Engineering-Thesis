@@ -95,9 +95,7 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
     try {
       final settings = _settingsFromForm();
       final creating = !_exists;
-      final saved = creating
-          ? await _apiService.createBoardSettings(widget.board.boardMac, settings)
-          : await _apiService.updateBoardSettings(widget.board.boardMac, settings);
+      final saved = await _apiService.updateBoardSettings(widget.board.boardMac, settings);
 
       if (!mounted) return;
 

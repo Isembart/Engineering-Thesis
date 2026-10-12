@@ -1,5 +1,11 @@
 name: local
 variables:
   - name: host
-    value: https://inzynierka.bieda.it
+    value: localhost:3000
     description: ""
+  - name: admin_token
+    value: ""
+    description: ADMIN_TOKEN of the server behind host
+  - name: board_token
+    value: ""
+    description: BOARD_TOKEN of the server behind host

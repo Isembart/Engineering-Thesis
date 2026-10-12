@@ -39,7 +39,7 @@ static bool firmware_pending_verify()
            state == ESP_OTA_IMG_PENDING_VERIFY;
 }
 
-// The only place the provisioning config (WiFi, server endpoint, antenna) can be written.
+// The only place the provisioning config (WiFi, server endpoint and token, antenna) can be written.
 // Listens for PROVISIONING_WINDOW_MS on a provisioned board and forever on a blank one.
 static void provisioning_window()
 {

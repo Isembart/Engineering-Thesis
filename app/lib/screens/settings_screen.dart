@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'admin_access_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -112,6 +113,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: Colors.white,
                         ),
                       ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Center(
+                    child: TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AdminAccessScreen()),
+                      ),
+                      child: const Text('Admin access'),
                     ),
                   ),
                 ],
