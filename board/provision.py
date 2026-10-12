@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write a board's config (WiFi, server endpoint, antenna) over USB serial.
+"""Write a board's config (WiFi, server endpoint and token, antenna) over USB serial.
 
 Replaces everything stored on the board. Usage:
     ~/.platformio/penv/bin/python provision.py provision/<place>.json [port]

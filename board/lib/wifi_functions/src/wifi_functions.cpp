@@ -23,6 +23,12 @@ namespace
     ClientsBuffer *g_clientsBuffer = nullptr;
     bool g_wifiInitialized = false;
     BoardSettings *g_boardSettings = nullptr;
+
+    // Every server route a board uses requires the board token. Call after http.begin().
+    void add_board_token(HTTPClient &http)
+    {
+        http.addHeader("Authorization", "Bearer " + g_boardSettings->boardToken);
+    }
 }
 
 uint64_t get_mac_address()
@@ -223,6 +229,7 @@ bool send_data_to_server(ClientsBuffer &clientsBuffer)
     }
 
     http.addHeader("Content-Type", "application/json");
+    add_board_token(http);
 
     int httpResponseCode = http.POST(jsonBody);
     bool success = (httpResponseCode >= 200 && httpResponseCode < 300);
@@ -256,6 +263,7 @@ bool send_settings_to_server()
     }
 
     http.addHeader("Content-Type", "application/json");
+    add_board_token(http);
 
     // serialize the settings to JSON
     JsonDocument doc;
@@ -312,6 +320,7 @@ bool get_settings_from_server()
         return false;
     }
 
+    add_board_token(http);
     int httpResponseCode = http.GET();
 
     bool success = (httpResponseCode >= 200 && httpResponseCode < 300);
@@ -377,6 +386,7 @@ bool check_firmware_update()
         return false;
     }
 
+    add_board_token(http);
     int httpResponseCode = http.GET();
     JsonDocument doc;
     // Require our own JSON, a captive portal answering 200 must not count as the server
@@ -433,6 +443,7 @@ bool check_firmware_update()
         return true;
     }
 
+    add_board_token(http);
     httpResponseCode = http.GET();
     const int size = http.getSize();
     LOG("OTA", "Downloading %d bytes, do not power off", size);

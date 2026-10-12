@@ -6,5 +6,6 @@
   "peap_username": "peap@peap.com",
   "peap_password": "password1234",
   "server_endpoint": "http://192.168.68.55:3000",
+  "board_token": "BOARD_TOKEN from the server's .env",
   "external_antenna": false
 }
