@@ -1,0 +1,24 @@
+info:
+  name: Download Firmware
+  type: http
+  seq: 8
+
+http:
+  method: GET
+  # Version 1 must exist as 1.bin in the server's FIRMWARE_DIR
+  url: "{{host}}/firmware/bin/1.bin"
+  auth:
+    type: bearer
+    token: "{{board_token}}"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

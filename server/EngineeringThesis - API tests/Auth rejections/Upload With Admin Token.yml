@@ -1,0 +1,29 @@
+info:
+  name: Upload With Admin Token
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{host}}/upload-board-data"
+  auth:
+    type: bearer
+    token: "{{admin_token}}"
+  body:
+    type: json
+    data: |-
+      {
+        "mac_address": 1234,
+        "clients_count": 5
+      }
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "401"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,7 +1,7 @@
 info:
   name: Update Board Settings
   type: http
-  seq: 3
+  seq: 4
 
 http:
   method: PUT
@@ -25,7 +25,15 @@ http:
         "min_rssi": -75,
         "min_rssi_ble": -85
       }
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{admin_token}}"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
 
 settings:
   encodeUrl: true

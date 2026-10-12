@@ -1,8 +1,10 @@
 info:
   name: Upload Board Settings
   type: http
-  seq: 1
+  seq: 2
 
+# Creates the settings, so it returns 200 only on the first run against a database.
+# A repeat run returns 409, which the firmware also relies on.
 http:
   method: POST
   url: "{{host}}/board-settings?mac_address=1234"
@@ -18,15 +20,22 @@ http:
     data: |-
       {
         "scans_per_send": 1,
-        "wifi_scan_time": 6,
-        "bluetooth_scan_time": 5
-      //   "wifi_channel_scan_time": 5,
-      //   "bluetooth_channel_scan_time": 5,
-      //   "minimal_encounter_count": 3,
-      //   "min_rssi": -75,
-      //   "server_endpoint": "http://localhost:8000"
+        "wifi_scan_time_ms": 40000,
+        "bluetooth_scan_time_ms": 12000,
+        "wifi_channel_scan_time_ms": 200,
+        "minimal_encounter_count": 2,
+        "min_rssi": -75,
+        "min_rssi_ble": -85
       }
-  auth: inherit
+  auth:
+    type: bearer
+    token: "{{board_token}}"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
 
 settings:
   encodeUrl: true
