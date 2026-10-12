@@ -13,20 +13,6 @@ use crate::{
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-pub struct AddBoardRequest {
-    pub mac_address: i64,
-    pub name: Option<String>,
-}
-
-pub async fn add_board(
-    State(pool): State<DbPool>,
-    Json(payload): Json<AddBoardRequest>,
-) -> Result<Json<boards::Model>, AppError> {
-    let new_board = boards_operations::add_board(payload.mac_address, payload.name, &pool).await?;
-    Ok(Json(new_board))
-}
-
-#[derive(Deserialize)]
 pub struct RenameBoardRequest {
     pub mac_address: i64,
     pub name: String,
