@@ -42,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Failed to load boards. Please check server settings.';
+          _error = 'Failed to load boards. Please check server settings.\n$e';
           _isLoading = false;
         });
       }

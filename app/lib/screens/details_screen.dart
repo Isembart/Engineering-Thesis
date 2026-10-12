@@ -195,22 +195,35 @@ class _DetailsScreenState extends State<DetailsScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
+        // Admin controls are not built at all in guest mode
         actions: [
-          IconButton(
-            icon: const Icon(Icons.tune, color: Colors.black87),
-            tooltip: 'Board settings',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => BoardSettingsScreen(board: widget.board),
-                ),
+          ValueListenableBuilder<bool>(
+            valueListenable: ApiService.isAdmin,
+            builder: (context, isAdmin, _) {
+              if (!isAdmin) return const SizedBox.shrink();
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.tune, color: Colors.black87),
+                    tooltip: 'Board settings',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => BoardSettingsScreen(board: widget.board),
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.black87),
+                    tooltip: 'Rename board',
+                    onPressed: _showRenameDialog,
+                  ),
+                ],
               );
             },
-          ),
-          IconButton(
-            icon: const Icon(Icons.edit, color: Colors.black87),
-            onPressed: _showRenameDialog,
           ),
         ],
       ),
