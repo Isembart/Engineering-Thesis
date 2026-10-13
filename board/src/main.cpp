@@ -17,6 +17,7 @@ ClientsBuffer clientsBuffer;
 
 BoardSettings boardSettings;
 
+#define RF_SWITCH_PIN 3
 #define EXTERNAL_ANTENNA_PIN 14
 
 // How long a provisioned board waits for a "PROVISION {json}" line after boot
@@ -94,9 +95,7 @@ static void provisioning_window()
 void setup()
 {
     pinMode(LED_BUILTIN, OUTPUT);
-    pinMode(EXTERNAL_ANTENNA_PIN, OUTPUT);
-    digitalWrite(EXTERNAL_ANTENNA_PIN, LOW); // internal antenna until the stored config says otherwise
-    Serial.setRxBufferSize(2048);            // a provisioning line is longer than the default buffer
+    Serial.setRxBufferSize(2048); // a provisioning line is longer than the default buffer
     Serial.begin(115200);
 
     boardSettings.load();
@@ -114,6 +113,9 @@ void setup()
 
     if (boardSettings.externalAntenna)
     {
+        pinMode(EXTERNAL_ANTENNA_PIN, OUTPUT);
+        digitalWrite(RF_SWITCH_PIN, LOW);
+        pinMode(RF_SWITCH_PIN, OUTPUT);
         digitalWrite(EXTERNAL_ANTENNA_PIN, HIGH); // Set GPIO14 high to use the external antenna
     }
 }
