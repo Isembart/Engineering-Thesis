@@ -17,6 +17,8 @@ pub async fn add_board_data_record(
     new_record.insert(db).await
 }
 
+// TODO!: Allow for pagination
+// TODO!: Remove the bucket_size_minutes and use just plain hours
 pub async fn get_board_data_records(
     board_id: i64,
     start: Option<DateTimeWithTimeZone>,

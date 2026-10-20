@@ -49,7 +49,8 @@ pub async fn upload_board_data(
             }
         };
 
-    let timestamp: sea_orm::prelude::DateTimeWithTimeZone = chrono::Local::now().fixed_offset();
+    // Stored in UTC so every row has the same offset; the app converts to local time for display.
+    let timestamp: sea_orm::prelude::DateTimeWithTimeZone = chrono::Utc::now().fixed_offset();
 
     let board_data_record = board_data_records_operations::add_board_data_record(
         board.id,
@@ -73,9 +74,13 @@ pub async fn get_board_data(
     State(pool): State<DbPool>,
     Query(payload): Query<GetBoardDataRequest>,
 ) -> Result<Json<Vec<board_data_records::Model>>, AppError> {
-    let local_offset = *chrono::Local::now().offset();
-    let start = payload.start.map(|s| s.with_timezone(&local_offset));
-    let end = payload.end.map(|e| e.with_timezone(&local_offset));
+    // records are stored as UTC for easy comparison. We convert them on the fly when we return them
+    let start = payload
+        .start
+        .map(|s| s.with_timezone(&chrono::Utc).fixed_offset());
+    let end = payload
+        .end
+        .map(|e| e.with_timezone(&chrono::Utc).fixed_offset());
 
     let board = match boards_operations::get_board_by_mac(payload.mac_address, &pool).await? {
         Some(board) => board,

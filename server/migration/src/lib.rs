@@ -5,6 +5,7 @@ mod m20260808_141636_create_board_settings;
 mod m20260808_141701_create_boards_data_records;
 mod m20260813_204810_add_min_ble_rssi_and_add_ms_to_settings_names;
 mod m20261011_180000_add_firmware_version_to_boards;
+mod m20261020_172129_remove_timezone;
 
 pub struct Migrator;
 
@@ -17,6 +18,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260808_141701_create_boards_data_records::Migration),
             Box::new(m20260813_204810_add_min_ble_rssi_and_add_ms_to_settings_names::Migration),
             Box::new(m20261011_180000_add_firmware_version_to_boards::Migration),
+            Box::new(m20261020_172129_remove_timezone::Migration),
         ]
     }
 }
