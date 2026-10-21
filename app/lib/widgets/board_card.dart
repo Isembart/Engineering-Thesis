@@ -40,7 +40,6 @@ class _BoardCardState extends State<BoardCard> {
         widget.board.boardMac,
         start: start,
         end: now,
-        bucketSizeMinutes: 15,
       );
 
       // Fetch high-resolution data for the current level
@@ -49,10 +48,9 @@ class _BoardCardState extends State<BoardCard> {
         widget.board.boardMac,
         start: recentStart,
         end: now,
-        bucketSizeMinutes: 1,
       );
 
-      final current = DataAggregator.getCurrentCrowdLevel(recentRecords, now);
+      final current = DataAggregator.getCurrentCrowdLevel(recentRecords);
 
       if (mounted) {
         setState(() {
@@ -153,7 +151,7 @@ class _BoardCardState extends State<BoardCard> {
 
   Widget _buildMiniGraph() {
     if (_graphStart == null || _graphEnd == null) return const SizedBox.shrink();
-    final buckets = DataAggregator.aggregateToFixedBuckets(_recentRecords, _graphStart!, _graphEnd!, 15);
+    final buckets = DataAggregator.aggregateToFixedBuckets(_recentRecords, _graphStart!, _graphEnd!);
     if (buckets.isEmpty) return const SizedBox.shrink();
 
     return LineChart(

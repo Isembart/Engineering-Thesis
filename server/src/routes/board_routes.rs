@@ -67,7 +67,6 @@ pub struct GetBoardDataRequest {
     pub mac_address: i64,
     pub start: Option<chrono::DateTime<chrono::FixedOffset>>,
     pub end: Option<chrono::DateTime<chrono::FixedOffset>>,
-    pub bucket_size_minutes: u32,
 }
 
 pub async fn get_board_data(
@@ -92,14 +91,9 @@ pub async fn get_board_data(
         }
     };
 
-    let records = board_data_records_operations::get_board_data_records(
-        board.id,
-        start,
-        end,
-        payload.bucket_size_minutes,
-        &pool,
-    )
-    .await?;
+    let records =
+        board_data_records_operations::get_board_data_records_bucketed(board.id, start, end, &pool)
+            .await?;
 
     Ok(Json(records))
 }

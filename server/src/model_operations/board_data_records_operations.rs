@@ -17,13 +17,10 @@ pub async fn add_board_data_record(
     new_record.insert(db).await
 }
 
-// TODO!: Allow for pagination
-// TODO!: Remove the bucket_size_minutes and use just plain hours
-pub async fn get_board_data_records(
+pub async fn get_board_data_records_bucketed(
     board_id: i64,
     start: Option<DateTimeWithTimeZone>,
     end: Option<DateTimeWithTimeZone>,
-    bucket_size_minutes: u32,
     db: &DatabaseConnection,
 ) -> Result<Vec<Model>, sea_orm::DbErr> {
     let mut query = Entity::find().filter(Column::BoardId.eq(board_id));
@@ -35,11 +32,8 @@ pub async fn get_board_data_records(
         query = query.filter(Column::Timestamp.lte(e));
     }
 
-    if bucket_size_minutes == 0 {
-        return query.order_by_asc(Column::Timestamp).all(db).await;
-    }
-
-    let bucket_size_secs = bucket_size_minutes * 60;
+    // FIXED BUCKET SIZE: 1 hour
+    let bucket_size_secs = 60 * 60;
     let bucket_expr = Expr::cust_with_values(
         "strftime('%Y-%m-%dT%H:%M:%S+00:00', (CAST(strftime('%s', timestamp) AS INTEGER) / ?) * ?, 'unixepoch')",
         vec![bucket_size_secs, bucket_size_secs]

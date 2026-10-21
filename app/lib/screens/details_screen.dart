@@ -8,7 +8,7 @@ import '../services/data_aggregator.dart';
 import '../utils/mac_address_formatter.dart';
 import 'board_settings_screen.dart';
 
-enum Timeframe { last3Hours, daytime, fullDay }
+enum Timeframe { daytime, fullDay }
 
 class DetailsScreen extends StatefulWidget {
   final Board board;
@@ -53,27 +53,19 @@ class _DetailsScreenState extends State<DetailsScreen> {
       final now = DateTime.now();
       DateTime start;
       DateTime end;
-      int bucketSizeMinutes;
 
-      if (_selectedTimeframe == Timeframe.last3Hours && _isToday(_selectedDate)) {
-        end = now;
-        start = now.subtract(const Duration(hours: 3));
-        bucketSizeMinutes = 15;
-      } else if (_selectedTimeframe == Timeframe.daytime) {
+      if (_selectedTimeframe == Timeframe.daytime) {
         start = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 6, 0, 0);
         end = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59);
-        bucketSizeMinutes = 60;
       } else {
         start = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 0, 0, 0);
         end = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, 23, 59, 59);
-        bucketSizeMinutes = 60;
       }
 
       final records = await _apiService.getBoardData(
         widget.board.boardMac,
         start: start,
         end: end,
-        bucketSizeMinutes: bucketSizeMinutes,
       );
 
       // Fetch recent records for Current Clients specifically
@@ -82,11 +74,10 @@ class _DetailsScreenState extends State<DetailsScreen> {
         widget.board.boardMac,
         start: recentStart,
         end: now,
-        bucketSizeMinutes: 1,
       );
-      final currentLevel = DataAggregator.getCurrentCrowdLevel(recentRecords, now);
+      final currentLevel = DataAggregator.getCurrentCrowdLevel(recentRecords);
 
-      final buckets = DataAggregator.aggregateToFixedBuckets(records, start, end, bucketSizeMinutes);
+      final buckets = DataAggregator.aggregateToFixedBuckets(records, start, end);
 
       if (mounted) {
         setState(() {
@@ -118,9 +109,6 @@ class _DetailsScreenState extends State<DetailsScreen> {
     if (picked != null) {
       setState(() {
         _selectedDate = picked;
-        if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
-          _selectedTimeframe = Timeframe.daytime;
-        }
       });
       _loadData();
     }
@@ -290,9 +278,6 @@ class _DetailsScreenState extends State<DetailsScreen> {
                   onPressed: () {
                     setState(() {
                       _selectedDate = _selectedDate.subtract(const Duration(days: 1));
-                      if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
-                        _selectedTimeframe = Timeframe.daytime;
-                      }
                     });
                     _loadData();
                   },
@@ -318,9 +303,6 @@ class _DetailsScreenState extends State<DetailsScreen> {
                       : () {
                           setState(() {
                             _selectedDate = _selectedDate.add(const Duration(days: 1));
-                            if (!_isToday(_selectedDate) && _selectedTimeframe == Timeframe.last3Hours) {
-                              _selectedTimeframe = Timeframe.daytime;
-                            }
                           });
                           _loadData();
                         },
@@ -335,8 +317,6 @@ class _DetailsScreenState extends State<DetailsScreen> {
                         items: [
                           const DropdownMenuItem(value: Timeframe.daytime, child: Text('6:00-23:00')),
                           const DropdownMenuItem(value: Timeframe.fullDay, child: Text('Full Day')),
-                          if (_isToday(_selectedDate))
-                            const DropdownMenuItem(value: Timeframe.last3Hours, child: Text('Last 3h')),
                         ],
                         onChanged: (Timeframe? newValue) {
                           if (newValue != null) {
@@ -419,9 +399,8 @@ class _DetailsScreenState extends State<DetailsScreen> {
         .fold<double>(0, (prev, v) => v > prev ? v : prev);
     final maxY = maxClients <= 0 ? 5.0 : (maxClients * 1.2).ceilToDouble();
 
-    // Label every 2 hours for day views, every ~4 buckets for shorter ranges.
-    final isHourly = _selectedTimeframe != Timeframe.last3Hours;
-    final labelEvery = isHourly ? 2 : 4;
+    // Hourly buckets: label every 2nd bar.
+    const labelEvery = 2;
 
     return Container(
       height: 350,
@@ -467,7 +446,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
 
                   final bucket = _buckets[index];
                   final label = DateFormat(
-                    isHourly ? 'HH' : 'HH:mm',
+                    'HH:mm',
                   ).format(bucket.startTime);
 
                   return Padding(
@@ -498,7 +477,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                   color: isFuture || bucket.averageClients <= 0
                       ? Colors.transparent
                       : const Color(0xFF3B82F6),
-                  width: isHourly ? 8 : 10,
+                  width: 8,
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                 ),
               ],
