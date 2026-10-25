@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/board.dart';
 import '../models/board_data_record.dart';
 import '../models/board_settings.dart';
+import '../models/hour_prediction.dart';
 
 class ApiService {
   static const String _defaultUrl = 'http://192.168.1.100:3000';
@@ -127,6 +128,25 @@ class ApiService {
       return data.map((json) => BoardDataRecord.fromJson(json)).toList();
     } else {
       throw Exception('Failed to load board data: ${response.statusCode}');
+    }
+  }
+
+  /// One entry per hour in [start, end). The server floors start to the hour.
+  Future<List<HourPrediction>> getBoardPrediction(int macAddress, DateTime start, DateTime end) async {
+    final baseUrl = await getServerUrl();
+    final uri = Uri.parse('$baseUrl/get-board-prediction').replace(queryParameters: {
+      'mac_address': macAddress.toString(),
+      'start': _formatDateTime(start),
+      'end': _formatDateTime(end),
+    });
+
+    final response = await http.get(uri);
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((json) => HourPrediction.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load board prediction: ${response.statusCode}');
     }
   }
 

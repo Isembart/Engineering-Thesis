@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import '../models/board.dart';
-import '../models/board_data_record.dart';
+import '../models/hour_prediction.dart';
 import '../services/api_service.dart';
 import '../services/data_aggregator.dart';
 import '../utils/mac_address_formatter.dart';
 import '../screens/details_screen.dart';
+import 'crowd_comparison_row.dart';
 
 class BoardCard extends StatefulWidget {
   final Board board;
@@ -21,9 +21,7 @@ class _BoardCardState extends State<BoardCard> {
   final ApiService _apiService = ApiService();
   bool _isLoading = true;
   double _currentCrowd = 0;
-  List<BoardDataRecord> _recentRecords = [];
-  DateTime? _graphStart;
-  DateTime? _graphEnd;
+  HourPrediction? _prediction;
 
   @override
   void initState() {
@@ -34,14 +32,6 @@ class _BoardCardState extends State<BoardCard> {
   Future<void> _loadData() async {
     try {
       final now = DateTime.now();
-      // Fetch data for the last 2 hours for the mini graph and current level
-      final start = now.subtract(const Duration(hours: 2));
-      final records = await _apiService.getBoardData(
-        widget.board.boardMac,
-        start: start,
-        end: now,
-      );
-
       // Fetch high-resolution data for the current level
       final recentStart = now.subtract(const Duration(minutes: 15));
       final recentRecords = await _apiService.getBoardData(
@@ -52,12 +42,16 @@ class _BoardCardState extends State<BoardCard> {
 
       final current = DataAggregator.getCurrentCrowdLevel(recentRecords);
 
+      // Optional: without it the card shows only the count.
+      final hourStart = DateTime(now.year, now.month, now.day, now.hour);
+      final predictions = await _apiService
+          .getBoardPrediction(widget.board.boardMac, hourStart, hourStart.add(const Duration(hours: 1)))
+          .catchError((_) => <HourPrediction>[]);
+
       if (mounted) {
         setState(() {
-          _recentRecords = records;
           _currentCrowd = current;
-          _graphStart = start;
-          _graphEnd = now;
+          _prediction = predictions.firstOrNull;
           _isLoading = false;
         });
       }
@@ -137,50 +131,10 @@ class _BoardCardState extends State<BoardCard> {
                   ),
                 ],
               ),
-            const SizedBox(height: 16),
-            if (!_isLoading && _recentRecords.isNotEmpty)
-              SizedBox(
-                height: 40,
-                child: _buildMiniGraph(),
-              ),
+            if (!_isLoading)
+              CrowdComparisonRow(current: _currentCrowd, prediction: _prediction),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildMiniGraph() {
-    if (_graphStart == null || _graphEnd == null) return const SizedBox.shrink();
-    final buckets = DataAggregator.aggregateToFixedBuckets(_recentRecords, _graphStart!, _graphEnd!);
-    if (buckets.isEmpty) return const SizedBox.shrink();
-
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(show: false),
-        titlesData: FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        lineBarsData: [
-          LineChartBarData(
-            spots: buckets.asMap().entries.where((e) {
-              final bucket = e.value;
-              final now = DateTime.now();
-              if (bucket.startTime.isAfter(now)) return false;
-              if (bucket.averageClients == 0.0 && bucket.endTime.isAfter(now)) return false;
-              return true;
-            }).map((e) {
-              return FlSpot(e.key.toDouble(), e.value.averageClients);
-            }).toList(),
-            isCurved: true,
-            color: Colors.blue.shade300,
-            barWidth: 2,
-            isStrokeCapRound: true,
-            dotData: FlDotData(show: false),
-            belowBarData: BarAreaData(
-              show: true,
-              color: Colors.blue.shade300.withOpacity(0.2),
-            ),
-          ),
-        ],
       ),
     );
   }
