@@ -56,8 +56,15 @@ mod tests {
 
     #[test]
     fn picks_highest_well_formed_version() {
-        let names = ["2.bin", "10.bin", "11.bin.part", "012.bin", "notes.txt", "x.bin"]
-            .map(String::from);
+        let names = [
+            "2.bin",
+            "10.bin",
+            "11.bin.part",
+            "012.bin",
+            "notes.txt",
+            "x.bin",
+        ]
+        .map(String::from);
         assert_eq!(latest_version(&names), 10);
         assert_eq!(latest_version(&[]), 0);
     }

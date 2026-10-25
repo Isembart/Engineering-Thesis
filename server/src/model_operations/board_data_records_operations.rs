@@ -1,3 +1,4 @@
+use chrono::{naive, Days, Local, TimeZone, Utc};
 use sea_orm::{entity::prelude::*, sea_query::Expr, ActiveValue::Set, QueryOrder, QuerySelect};
 
 use crate::model::board_data_records::{ActiveModel, Column, Entity, Model};
@@ -54,4 +55,69 @@ pub async fn get_board_data_records_bucketed(
         .into_model::<Model>()
         .all(db)
         .await
+}
+
+#[derive(serde::Serialize)]
+pub struct HourPrediction {
+    pub timestamp: DateTimeUtc,
+    pub samples: u8,
+    pub mean: Option<f64>,
+    pub min: Option<i64>,
+    pub max: Option<i64>,
+}
+// find the timestamp of the same hour X weeks ago, or None if it doesn't exists. Calculates in local time to account for DST changes, then converts back to UTC
+fn weeks_ago(t: DateTimeUtc, weeks: u64) -> Option<DateTimeUtc> {
+    let localDateTime = t.with_timezone(&Local).naive_local();
+    let weeks_ago = localDateTime.checked_sub_days(Days::new(7 * weeks))?;
+
+    let weeks_ago = Local.from_local_datetime(&weeks_ago).single()?;
+    Some(weeks_ago.with_timezone(&Utc))
+}
+
+fn predict(
+    buckets: &std::collections::HashMap<i64, i64>,
+    start: DateTimeUtc,
+    end: DateTimeUtc,
+) -> Vec<HourPrediction> {
+    let mut out = Vec::new();
+    let mut t = start;
+    while t < end {
+        // a vector that will contain the values of the same hour in the last 4 weeks, if they exist
+        let vals: Vec<i64> = (1..=4)
+            .filter_map(|k| weeks_ago(t, k))
+            .filter_map(|w| buckets.get(&w.timestamp()).copied())
+            .collect();
+        out.push(HourPrediction {
+            timestamp: t,
+            samples: vals.len() as u8,
+            mean: (!vals.is_empty()).then(|| vals.iter().sum::<i64>() as f64 / vals.len() as f64),
+            min: vals.iter().min().copied(),
+            max: vals.iter().max().copied(),
+        });
+        t += chrono::TimeDelta::hours(1);
+    }
+    out
+}
+
+pub async fn get_board_data_predictions(
+    board_id: i64,
+    start: DateTimeUtc,
+    end: DateTimeUtc,
+    db: &DatabaseConnection,
+) -> Result<Vec<HourPrediction>, DbErr> {
+    // extra hour covers a DST shift; the bucketed query's end is inclusive, so step back 1 s
+    let from = start - chrono::TimeDelta::days(28) - chrono::TimeDelta::hours(1);
+    let to = end - chrono::TimeDelta::seconds(1);
+    let records = get_board_data_records_bucketed(
+        board_id,
+        Some(from.fixed_offset()),
+        Some(to.fixed_offset()),
+        db,
+    )
+    .await?;
+    let buckets = records
+        .into_iter()
+        .map(|r| (r.timestamp.timestamp(), r.clients_count))
+        .collect();
+    Ok(predict(&buckets, start, end))
 }

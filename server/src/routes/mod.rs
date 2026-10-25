@@ -16,6 +16,10 @@ pub fn router() -> Router<DbPool> {
     // Open to guests: read-only board list and counts
     let guest = Router::new()
         .route("/get-board-data", get(board_routes::get_board_data))
+        .route(
+            "/get-board-prediction",
+            get(board_routes::get_board_data_predictions),
+        )
         .route("/get-board", get(board_routes::get_board))
         .route("/get-all-boards", get(board_routes::get_all_boards));
 

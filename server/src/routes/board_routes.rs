@@ -2,6 +2,7 @@ use axum::{
     extract::{Query, State},
     Json,
 };
+use chrono::{DurationRound, TimeDelta, Utc};
 
 use crate::{
     db::DbPool,
@@ -121,4 +122,36 @@ pub async fn get_all_boards(
 ) -> Result<Json<Vec<boards::Model>>, AppError> {
     let boards = boards_operations::get_all_boards(&pool).await?;
     Ok(Json(boards))
+}
+
+#[derive(Deserialize)]
+pub struct BoardDataPredictionsRequest {
+    pub mac_address: i64,
+    pub start: chrono::DateTime<Utc>,
+    pub end: chrono::DateTime<Utc>,
+}
+
+pub async fn get_board_data_predictions(
+    State(pool): State<DbPool>,
+    Query(payload): Query<BoardDataPredictionsRequest>,
+) -> Result<Json<Vec<board_data_records_operations::HourPrediction>>, AppError> {
+    let start = payload
+        .start
+        .duration_trunc(TimeDelta::hours(1))
+        .map_err(|e| AppError::BadRequest(e.to_string()))?;
+    let end = payload.end;
+    if end <= start || end - start > TimeDelta::days(31) {
+        return Err(AppError::BadRequest(
+            "end must be after start and the range at most 31 days".into(),
+        ));
+    }
+
+    let board = boards_operations::get_board_by_mac(payload.mac_address, &pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("Board not found: {}", payload.mac_address)))?;
+
+    let predictions =
+        board_data_records_operations::get_board_data_predictions(board.id, start, end, &pool)
+            .await?;
+    Ok(Json(predictions))
 }

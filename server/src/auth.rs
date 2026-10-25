@@ -26,7 +26,9 @@ struct Tokens {
 static TOKENS: OnceLock<Tokens> = OnceLock::new();
 
 fn tokens() -> &'static Tokens {
-    TOKENS.get().expect("auth::init must run before the server starts")
+    TOKENS
+        .get()
+        .expect("auth::init must run before the server starts")
 }
 
 fn check_tokens(admin: &str, board: &str) -> Result<(), String> {
@@ -115,7 +117,10 @@ mod tests {
         let allowed = ["admin-secret", "board-secret"];
         assert!(is_authorized(Some("Bearer admin-secret"), &allowed));
         assert!(is_authorized(Some("Bearer board-secret"), &allowed));
-        assert!(!is_authorized(Some("Bearer board-secret"), &["admin-secret"]));
+        assert!(!is_authorized(
+            Some("Bearer board-secret"),
+            &["admin-secret"]
+        ));
         assert!(!is_authorized(Some("Bearer admin-secre"), &allowed));
         assert!(!is_authorized(Some("admin-secret"), &allowed));
         assert!(!is_authorized(Some("Bearer "), &allowed));

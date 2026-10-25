@@ -55,10 +55,30 @@ impl BoardSettingsDTO {
     fn validate(&self) -> Result<(), AppError> {
         let bounds = [
             ("scans_per_send", self.scans_per_send, 1, 10),
-            ("wifi_scan_time_ms", self.wifi_scan_time_ms, 1000, 5 * 60 * 1000),
-            ("bluetooth_scan_time_ms", self.bluetooth_scan_time_ms, 1000, 60 * 1000),
-            ("wifi_channel_scan_time_ms", self.wifi_channel_scan_time_ms, 50, 5000),
-            ("minimal_encounter_count", self.minimal_encounter_count, 1, 100),
+            (
+                "wifi_scan_time_ms",
+                self.wifi_scan_time_ms,
+                1000,
+                5 * 60 * 1000,
+            ),
+            (
+                "bluetooth_scan_time_ms",
+                self.bluetooth_scan_time_ms,
+                1000,
+                60 * 1000,
+            ),
+            (
+                "wifi_channel_scan_time_ms",
+                self.wifi_channel_scan_time_ms,
+                50,
+                5000,
+            ),
+            (
+                "minimal_encounter_count",
+                self.minimal_encounter_count,
+                1,
+                100,
+            ),
             ("min_rssi", self.min_rssi, -100, 0),
             ("min_rssi_ble", self.min_rssi_ble, -100, 0),
         ];
@@ -166,8 +186,23 @@ mod tests {
     #[test]
     fn rejects_out_of_bounds_settings() {
         assert!(defaults().validate().is_ok());
-        assert!(BoardSettingsDTO { scans_per_send: 0, ..defaults() }.validate().is_err());
-        assert!(BoardSettingsDTO { wifi_scan_time_ms: 300_001, ..defaults() }.validate().is_err());
-        assert!(BoardSettingsDTO { min_rssi_ble: 1, ..defaults() }.validate().is_err());
+        assert!(BoardSettingsDTO {
+            scans_per_send: 0,
+            ..defaults()
+        }
+        .validate()
+        .is_err());
+        assert!(BoardSettingsDTO {
+            wifi_scan_time_ms: 300_001,
+            ..defaults()
+        }
+        .validate()
+        .is_err());
+        assert!(BoardSettingsDTO {
+            min_rssi_ble: 1,
+            ..defaults()
+        }
+        .validate()
+        .is_err());
     }
 }

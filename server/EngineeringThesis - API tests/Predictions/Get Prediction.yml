@@ -1,0 +1,23 @@
+info:
+  name: Get Prediction
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{host}}/get-board-prediction?mac_address=1234&start=2026-07-01T10:30:00Z&end=2026-07-02T10:00:00Z"
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.length
+      operator: eq
+      value: "24"
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

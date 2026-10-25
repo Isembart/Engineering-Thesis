@@ -1,0 +1,21 @@
+info:
+  name: Prediction Missing End
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{host}}/get-board-prediction?mac_address=1234&start=2026-07-01T10:00:00Z"
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "400"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
