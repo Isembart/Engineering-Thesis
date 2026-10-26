@@ -5,7 +5,19 @@ info:
 
 http:
   method: GET
-  url: "{{host}}/get-board-prediction?mac_address=1234&start=2026-07-01T10:30:00Z&end=2026-07-02T10:00:00Z"
+  url: |
+    {{host}}/get-board-prediction?mac_address=1234&start=2026-07-01T10:30:00Z&end=2026-07-02T10:00:00Z
+  params:
+    - name: mac_address
+      value: "1234"
+      type: query
+    - name: start
+      value: 2026-07-01T10:30:00Z
+      type: query
+    - name: end
+      value: |
+        2026-07-02T10:00:00Z
+      type: query
   auth: inherit
 
 runtime:
@@ -16,8 +28,10 @@ runtime:
     - expression: res.body.length
       operator: eq
       value: "24"
+
 settings:
   encodeUrl: true
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+  forwardAuthorizationHeader: true
