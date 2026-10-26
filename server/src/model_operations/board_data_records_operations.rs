@@ -1,4 +1,4 @@
-use chrono::{naive, Days, Local, TimeZone, Utc};
+use chrono::{Days, Local, TimeZone, Utc};
 use sea_orm::{entity::prelude::*, sea_query::Expr, ActiveValue::Set, QueryOrder, QuerySelect};
 
 use crate::model::board_data_records::{ActiveModel, Column, Entity, Model};
@@ -67,8 +67,8 @@ pub struct HourPrediction {
 }
 // find the timestamp of the same hour X weeks ago, or None if it doesn't exists. Calculates in local time to account for DST changes, then converts back to UTC
 fn weeks_ago(t: DateTimeUtc, weeks: u64) -> Option<DateTimeUtc> {
-    let localDateTime = t.with_timezone(&Local).naive_local();
-    let weeks_ago = localDateTime.checked_sub_days(Days::new(7 * weeks))?;
+    let local_date_time = t.with_timezone(&Local).naive_local();
+    let weeks_ago = local_date_time.checked_sub_days(Days::new(7 * weeks))?;
 
     let weeks_ago = Local.from_local_datetime(&weeks_ago).single()?;
     Some(weeks_ago.with_timezone(&Utc))
