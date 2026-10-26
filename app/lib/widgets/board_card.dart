@@ -103,9 +103,14 @@ class _BoardCardState extends State<BoardCard> {
               ),
             ),
             if (widget.board.firmwareVersion != null)
-              Text(
-                'Firmware v${widget.board.firmwareVersion}',
-                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ValueListenableBuilder<bool>(
+                valueListenable: ApiService.isAdmin,
+                builder: (context, isAdmin, _) => isAdmin
+                    ? Text(
+                        'Firmware v${widget.board.firmwareVersion}',
+                        style: const TextStyle(fontSize: 12, color: Colors.black54),
+                      )
+                    : const SizedBox.shrink(),
               ),
             const SizedBox(height: 12),
             if (_isLoading)
