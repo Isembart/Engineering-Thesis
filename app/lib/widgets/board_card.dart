@@ -2,143 +2,95 @@ import 'package:flutter/material.dart';
 import '../models/board.dart';
 import '../models/hour_prediction.dart';
 import '../services/api_service.dart';
-import '../services/data_aggregator.dart';
+import '../theme.dart';
 import '../utils/mac_address_formatter.dart';
-import '../screens/details_screen.dart';
-import 'crowd_comparison_row.dart';
+import 'status_block.dart';
 
+String boardDisplayName(Board board, [String? name]) {
+  name ??= board.name;
+  return (name != null && name.isNotEmpty) ? name : MacAddressFormatter.format(board.boardMac);
+}
+
+/// One place on the home list: name and status on one line, count and usual range under it.
 class BoardCard extends StatefulWidget {
   final Board board;
-  final VoidCallback? onBoardUpdated;
+  /// Null means offline.
+  final double? current;
+  final HourPrediction? prediction;
+  final VoidCallback onTap;
 
-  const BoardCard({Key? key, required this.board, this.onBoardUpdated}) : super(key: key);
+  const BoardCard({
+    super.key,
+    required this.board,
+    required this.current,
+    required this.prediction,
+    required this.onTap,
+  });
 
   @override
   State<BoardCard> createState() => _BoardCardState();
 }
 
 class _BoardCardState extends State<BoardCard> {
-  final ApiService _apiService = ApiService();
-  bool _isLoading = true;
-  double _currentCrowd = 0;
-  HourPrediction? _prediction;
+  bool _pressed = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    try {
-      final now = DateTime.now();
-      // Fetch high-resolution data for the current level
-      final recentStart = now.subtract(const Duration(minutes: 15));
-      final recentRecords = await _apiService.getBoardData(
-        widget.board.boardMac,
-        start: recentStart,
-        end: now,
-      );
-
-      final current = DataAggregator.getCurrentCrowdLevel(recentRecords);
-
-      // Optional: without it the card shows only the count.
-      final hourStart = DateTime(now.year, now.month, now.day, now.hour);
-      final predictions = await _apiService
-          .getBoardPrediction(widget.board.boardMac, hourStart, hourStart.add(const Duration(hours: 1)))
-          .catchError((_) => <HourPrediction>[]);
-
-      if (mounted) {
-        setState(() {
-          _currentCrowd = current;
-          _prediction = predictions.firstOrNull;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
+  void _setPressed(bool value) => setState(() => _pressed = value);
 
   @override
   Widget build(BuildContext context) {
-    final name = widget.board.name;
-    final displayName = (name != null && name.isNotEmpty)
-        ? name
-        : MacAddressFormatter.format(widget.board.boardMac);
+    final offline = widget.current == null;
+    final status = statusInfo(widget.current, widget.prediction);
 
-    return GestureDetector(
-      onTap: () async {
-        final updated = await Navigator.push<bool>(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DetailsScreen(board: widget.board),
-          ),
-        );
-        if (!mounted) return;
-        await _loadData();
-        if (updated == true) {
-          widget.onBoardUpdated?.call();
-        }
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200, width: 1),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              displayName,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        child: AnimatedScale(
+          scale: _pressed ? 0.98 : 1,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+            decoration: panelDecoration(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        boardDisplayName(widget.board),
+                        style: heading(18).copyWith(color: offline ? Palette.muted : Palette.ink),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    StatusTag(info: status, offline: offline),
+                  ],
+                ),
+                ValueListenableBuilder<bool>(
+                  valueListenable: ApiService.isAdmin,
+                  builder: (context, isAdmin, _) {
+                    final firmware = isAdmin ? widget.board.firmwareVersion : null;
+                    if (status.captions.isEmpty && firmware == null) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(status.captions.join(', '), style: archivo(14, color: Palette.muted)),
+                          ),
+                          if (firmware != null) Text('v$firmware', style: archivo(12, color: Palette.muted)),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
-            if (widget.board.firmwareVersion != null)
-              ValueListenableBuilder<bool>(
-                valueListenable: ApiService.isAdmin,
-                builder: (context, isAdmin, _) => isAdmin
-                    ? Text(
-                        'Firmware v${widget.board.firmwareVersion}',
-                        style: const TextStyle(fontSize: 12, color: Colors.black54),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            const SizedBox(height: 12),
-            if (_isLoading)
-              const Center(child: CircularProgressIndicator())
-            else
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _currentCrowd.toStringAsFixed(1),
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueAccent,
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 4, left: 8),
-                    child: Text(
-                      'Clients (Last 15m)',
-                      style: TextStyle(fontSize: 14, color: Colors.black54),
-                    ),
-                  ),
-                ],
-              ),
-            if (!_isLoading)
-              CrowdComparisonRow(current: _currentCrowd, prediction: _prediction),
-          ],
+          ),
         ),
       ),
     );

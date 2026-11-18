@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import '../models/hour_prediction.dart';
+import '../theme.dart';
+import '../utils/plural.dart';
 
-const _quiet = Color(0xFF22C55E);
-const _medium = Color(0xFFF59E0B);
-const _busy = Color(0xFFEF4444);
-const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const _weekdays = ['pn', 'wt', 'śr', 'czw', 'pt', 'sob', 'nd'];
+const _labelWidth = 40.0;
 
-/// Green → amber → red for t in [0, 1].
-Color heatColor(double t) => t < 0.5
-    ? Color.lerp(_quiet, _medium, t * 2)!
-    : Color.lerp(_medium, _busy, (t - 0.5) * 2)!;
+/// Light blue through vivid blue to navy for t in [0, 1].
+Color _heat(double t) => t < 0.5
+    ? Color.lerp(Palette.heatLow, Palette.heatMid, t * 2)!
+    : Color.lerp(Palette.heatMid, Palette.heatHigh, (t - 0.5) * 2)!;
 
-/// Weekdays × core hours, coloured by usual count over the coming 7 days.
+/// Weekdays across, core hours down, shaded by usual count over the coming 7 days.
 class WeekHeatmap extends StatelessWidget {
   final List<HourPrediction> week;
   final int fromHour;
@@ -26,73 +26,94 @@ class WeekHeatmap extends StatelessWidget {
       for (final p in week) (p.timestamp.weekday, p.timestamp.hour): p,
     };
     final maxMean = week.map((p) => p.mean ?? 0).fold<double>(0, (a, b) => b > a ? b : a);
-    final hours = [for (var h = fromHour; h < toHour; h++) h];
-    final labelStyle = TextStyle(color: Colors.grey.shade500, fontSize: 10);
+    final now = DateTime.now();
+    final label = archivo(11, color: Palette.muted);
 
     return Column(
       children: [
-        for (var day = 1; day <= 7; day++)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 1),
-            child: Row(
-              children: [
-                SizedBox(width: 32, child: Text(_weekdays[day - 1], style: labelStyle)),
-                for (final h in hours) Expanded(child: _cell(day, h, cells[(day, h)], maxMean)),
-              ],
-            ),
-          ),
         Row(
           children: [
-            const SizedBox(width: 32),
-            for (final h in hours)
+            const SizedBox(width: _labelWidth),
+            for (var day = 1; day <= 7; day++)
               Expanded(
-                child: Text(h % 3 == 0 ? '$h' : '',
-                    style: labelStyle, softWrap: false, overflow: TextOverflow.visible),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    _weekdays[day - 1],
+                    textAlign: TextAlign.center,
+                    style: day == now.weekday ? archivo(11, weight: FontWeight.w700) : label,
+                  ),
+                ),
               ),
           ],
         ),
-        const SizedBox(height: 8),
+        for (var h = fromHour; h < toHour; h++)
+          Row(
+            children: [
+              SizedBox(width: _labelWidth, child: Text(h % 3 == 0 ? '$h:00' : '', style: label)),
+              for (var day = 1; day <= 7; day++)
+                Expanded(
+                  child: _cell(day, h, cells[(day, h)], maxMean, isNow: day == now.weekday && h == now.hour),
+                ),
+            ],
+          ),
+        const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            Text('Quiet', style: labelStyle),
-            const SizedBox(width: 4),
+            Text('mniej osób', style: label),
+            const SizedBox(width: 6),
             Container(
-              width: 80,
+              width: 72,
               height: 8,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                gradient: const LinearGradient(colors: [_quiet, _medium, _busy]),
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.all(Radius.circular(2)),
+                gradient: LinearGradient(colors: [Palette.heatLow, Palette.heatMid, Palette.heatHigh]),
               ),
             ),
-            const SizedBox(width: 4),
-            Text('Busy', style: labelStyle),
+            const SizedBox(width: 6),
+            Text('więcej osób', style: label),
           ],
         ),
       ],
     );
   }
 
-  Widget _cell(int day, int hour, HourPrediction? p, double maxMean) {
+  Widget _cell(int day, int hour, HourPrediction? p, double maxMean, {required bool isNow}) {
     final mean = p?.mean;
-    final label = '${_weekdays[day - 1]} ${hour.toString().padLeft(2, '0')}:00';
+    final when = '${_weekdays[day - 1]} $hour:00';
     final message = mean == null
-        ? '$label: no data'
-        : '$label: ~${mean.toStringAsFixed(0)} (${p!.min}–${p.max}), ${p.samples} '
-            '${p.samples == 1 ? 'week' : 'weeks'}';
+        ? '$when\nbrak danych'
+        : '$when\nzwykle ok. ${mean.round()} (${p!.min}–${p.max})\nna podstawie ${weeksGenitive(p.samples)}';
+
+    final color = mean == null
+        ? Palette.panel
+        : _heat(maxMean <= 0 ? 0 : mean / maxMean);
+    const corner = BorderRadius.all(Radius.circular(2));
+    final cell = isNow
+        // Ink ring with a white gap, visible on light and dark cells alike.
+        ? Container(
+            height: 20,
+            padding: const EdgeInsets.all(1.5),
+            decoration: BoxDecoration(
+              color: Palette.panel,
+              border: Border.all(color: Palette.ink, width: 2),
+              borderRadius: corner,
+            ),
+            child: ColoredBox(color: color),
+          )
+        : Container(
+            height: 20,
+            decoration: BoxDecoration(
+              color: color,
+              border: mean == null ? Border.all(color: Palette.line) : null,
+              borderRadius: corner,
+            ),
+          );
     return Tooltip(
       message: message,
-      triggerMode: TooltipTriggerMode.longPress,
-      child: Container(
-        height: 18,
-        margin: const EdgeInsets.symmetric(horizontal: 0.5),
-        decoration: BoxDecoration(
-          color: mean == null
-              ? Colors.grey.shade200
-              : heatColor(maxMean <= 0 ? 0 : mean / maxMean),
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
+      triggerMode: TooltipTriggerMode.tap,
+      child: Padding(padding: const EdgeInsets.all(1), child: cell),
     );
   }
 }

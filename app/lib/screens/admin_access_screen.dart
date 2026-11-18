@@ -6,7 +6,7 @@ import '../services/api_service.dart';
 /// Where an admin token is entered (pasted, or scanned from the QR code the server
 /// prints on startup) and where admin mode is left again.
 class AdminAccessScreen extends StatefulWidget {
-  const AdminAccessScreen({Key? key}) : super(key: key);
+  const AdminAccessScreen({super.key});
 
   @override
   State<AdminAccessScreen> createState() => _AdminAccessScreenState();
@@ -30,10 +30,10 @@ class _AdminAccessScreenState extends State<AdminAccessScreen> {
     String message;
     try {
       message = await _apiService.enterAdminMode(token)
-          ? 'Admin access granted'
-          : 'The server rejected this token';
+          ? 'Przyznano dostęp administratora'
+          : 'Serwer odrzucił ten token';
     } catch (e) {
-      message = 'Could not reach the server to verify the token';
+      message = 'Nie udało się połączyć z serwerem, by sprawdzić token';
     }
     if (!mounted) return;
 
@@ -61,18 +61,9 @@ class _AdminAccessScreenState extends State<AdminAccessScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        title: const Text(
-          'Admin access',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Dostęp administratora')),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(16),
         child: ValueListenableBuilder<bool>(
           valueListenable: ApiService.isAdmin,
           builder: (context, isAdmin, _) => isAdmin ? _buildAdmin() : _buildGuest(),
@@ -86,14 +77,14 @@ class _AdminAccessScreenState extends State<AdminAccessScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Admin mode is on. You can rename boards and edit their settings on this server.',
+          'Tryb administratora jest włączony. Możesz zmieniać nazwy miejsc i ustawienia czujników na tym serwerze.',
         ),
         const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton(
             onPressed: _apiService.leaveAdminMode,
-            child: const Text('Leave admin mode'),
+            child: const Text('Wyłącz tryb administratora'),
           ),
         ),
       ],
@@ -105,7 +96,7 @@ class _AdminAccessScreenState extends State<AdminAccessScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Enter the admin token of this server. It is printed, with a QR code, when the server starts.',
+          'Wpisz token administratora tego serwera. Serwer wypisuje go, razem z kodem QR, przy każdym uruchomieniu.',
         ),
         const SizedBox(height: 16),
         TextField(
@@ -114,19 +105,14 @@ class _AdminAccessScreenState extends State<AdminAccessScreen> {
           autocorrect: false,
           enableSuggestions: false,
           onSubmitted: _submit,
-          decoration: InputDecoration(
-            labelText: 'Admin token',
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+          decoration: const InputDecoration(labelText: 'Token administratora'),
         ),
         const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
             onPressed: _isChecking ? null : () => _submit(_tokenController.text),
-            child: Text(_isChecking ? 'Checking...' : 'Unlock'),
+            child: Text(_isChecking ? 'Sprawdzanie…' : 'Odblokuj'),
           ),
         ),
         if (_canScan) ...[
@@ -136,7 +122,7 @@ class _AdminAccessScreenState extends State<AdminAccessScreen> {
             child: OutlinedButton.icon(
               onPressed: _isChecking ? null : _scan,
               icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Scan QR code'),
+              label: const Text('Zeskanuj kod QR'),
             ),
           ),
         ],
@@ -158,7 +144,7 @@ class _ScanTokenScreenState extends State<_ScanTokenScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan admin QR code')),
+      appBar: AppBar(title: const Text('Zeskanuj kod QR')),
       body: MobileScanner(
         onDetect: (capture) {
           final value = capture.barcodes.firstOrNull?.rawValue;

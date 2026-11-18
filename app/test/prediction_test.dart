@@ -11,6 +11,7 @@ import 'package:crowdness_app/models/board_data_record.dart';
 import 'package:crowdness_app/models/hour_prediction.dart';
 import 'package:crowdness_app/screens/details_screen.dart';
 import 'package:crowdness_app/services/data_aggregator.dart';
+import 'package:crowdness_app/utils/plural.dart';
 import 'package:crowdness_app/widgets/week_heatmap.dart';
 
 void main() {
@@ -30,6 +31,14 @@ void main() {
     expect(DataAggregator.compare(3, p), CrowdComparison.quieter);
     expect(DataAggregator.compare(6, p), CrowdComparison.usual);
     expect(DataAggregator.compare(7, HourPrediction(timestamp: DateTime(2026), samples: 0)), isNull);
+  });
+
+  test('no recent records means offline, not 0', () {
+    expect(DataAggregator.getCurrentCrowdLevel([]), isNull);
+  });
+
+  test('polish plurals', () {
+    expect([1, 3, 5, 12, 22, 25].map(people), ['1 osoba', '3 osoby', '5 osób', '12 osób', '22 osoby', '25 osób']);
   });
 
   testWidgets('details screen renders line chart, heatmap and comparison', (tester) async {
@@ -71,25 +80,15 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: DetailsScreen(board: Board(id: 1, boardMac: 1))));
       await tester.pumpAndSettle();
       // Switch to the full day so the gap at 01:00 is inside the chart.
-      await tester.tap(find.text('6:00-23:00'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Full Day').last);
+      await tester.tap(find.text('Cała doba'));
       await tester.pumpAndSettle();
     }, () => mock);
 
     expect(tester.takeException(), isNull);
     expect(find.byType(LineChart), findsOneWidget);
-    expect(find.text('Based on 3 of 4 weeks'), findsOneWidget);
-    expect(find.text('Busier than usual'), findsOneWidget);
-    // Date picker weeks start on Monday: the "M" header sits left of both "S" headers.
-    await tester.tap(find.textContaining('Today'));
-    await tester.pumpAndSettle();
-    final mondayX = tester.getTopLeft(find.text('M')).dx;
-    for (final s in find.text('S').evaluate()) {
-      expect(mondayX, lessThan(tester.getTopLeft(find.byWidget(s.widget)).dx));
-    }
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
+    expect(find.text('na podstawie 3 z 4 tygodni'), findsOneWidget);
+    expect(find.text('Tłoczniej niż zwykle'), findsOneWidget);
+    expect(find.text('ok. 9 osób'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.byType(WeekHeatmap), 200);
     expect(find.byType(WeekHeatmap), findsOneWidget);

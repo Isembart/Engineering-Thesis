@@ -48,8 +48,9 @@ class DataAggregator {
   /// Averages the records the server returned for the recent window.
   /// The server filters raw rows by start/end before bucketing, so these are
   /// already limited to the window even though they are stamped on the hour.
-  static double getCurrentCrowdLevel(List<BoardDataRecord> records) {
-    if (records.isEmpty) return 0.0;
+  /// Null when the board sent nothing in the window (offline), which is not the same as 0.
+  static double? getCurrentCrowdLevel(List<BoardDataRecord> records) {
+    if (records.isEmpty) return null;
     return records.map((r) => r.clientsCount).reduce((a, b) => a + b) / records.length;
   }
 

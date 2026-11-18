@@ -3,12 +3,13 @@ import 'package:flutter/services.dart';
 import '../models/board.dart';
 import '../models/board_settings.dart';
 import '../services/api_service.dart';
-import '../utils/mac_address_formatter.dart';
+import '../theme.dart';
+import '../widgets/board_card.dart';
 
 class BoardSettingsScreen extends StatefulWidget {
   final Board board;
 
-  const BoardSettingsScreen({Key? key, required this.board}) : super(key: key);
+  const BoardSettingsScreen({super.key, required this.board});
 
   @override
   State<BoardSettingsScreen> createState() => _BoardSettingsScreenState();
@@ -69,7 +70,7 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Failed to load board settings.';
+        _error = 'Nie udało się pobrać ustawień czujnika.';
         _isLoading = false;
       });
     }
@@ -106,13 +107,13 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
       _applySettings(saved);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(creating ? 'Settings created' : 'Settings saved')),
+        SnackBar(content: Text(creating ? 'Utworzono ustawienia' : 'Zapisano ustawienia')),
       );
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save settings: $e')),
+        SnackBar(content: Text('Nie udało się zapisać ustawień: $e')),
       );
     }
   }
@@ -130,27 +131,14 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
   }
 
   InputDecoration _fieldDecoration(String label, {String? helper}) {
-    return InputDecoration(
-      labelText: label,
-      helperText: helper,
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-    );
+    return InputDecoration(labelText: label, helperText: helper);
   }
 
   String? _intInRange(String? value, int min, int max) {
-    if (value == null || value.trim().isEmpty) return 'Required';
+    if (value == null || value.trim().isEmpty) return 'Pole wymagane';
     final parsed = int.tryParse(value.trim());
-    if (parsed == null) return 'Enter an integer';
-    if (parsed < min || parsed > max) return 'Must be between $min and $max';
+    if (parsed == null) return 'Podaj liczbę całkowitą';
+    if (parsed < min || parsed > max) return 'Wartość od $min do $max';
     return null;
   }
 
@@ -172,7 +160,7 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
             allowNegative ? RegExp(r'^-?\d*') : RegExp(r'\d*'),
           ),
         ],
-        decoration: _fieldDecoration(label, helper: '$min to $max'),
+        decoration: _fieldDecoration(label, helper: 'od $min do $max'),
         validator: (value) => _intInRange(value, min, max),
       ),
     );
@@ -180,21 +168,8 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.board.name?.isNotEmpty == true
-        ? '${widget.board.name} settings'
-        : '${MacAddressFormatter.format(widget.board.boardMac)} settings';
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        title: Text(
-          title,
-          style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
-        ),
-      ),
+      appBar: AppBar(title: Text('Ustawienia: ${boardDisplayName(widget.board)}')),
       body: _buildBody(),
     );
   }
@@ -209,9 +184,9 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Text(_error!, style: archivo(18, weight: FontWeight.w600)),
             const SizedBox(height: 16),
-            ElevatedButton(onPressed: _loadSettings, child: const Text('Retry')),
+            ElevatedButton(onPressed: _loadSettings, child: const Text('Spróbuj ponownie')),
           ],
         ),
       );
@@ -220,55 +195,55 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
     return Form(
       key: _formKey,
       child: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         children: [
           if (!_exists)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: Text(
-                'No settings yet. Form is filled with the board defaults.',
-                style: TextStyle(color: Colors.grey.shade700),
+                'Ten czujnik nie ma jeszcze ustawień. Formularz zawiera jego wartości domyślne.',
+                style: archivo(14, color: Palette.muted),
               ),
             ),
           _intField(
             controller: _scansPerSendController,
-            label: 'Scans per send',
+            label: 'Skany na jedną wysyłkę',
             min: 1,
             max: 10,
           ),
           _intField(
             controller: _wifiScanTimeMsController,
-            label: 'WiFi scan time (ms)',
+            label: 'Czas skanowania WiFi (ms)',
             min: 1000,
             max: 5 * 60 * 1000,
           ),
           _intField(
             controller: _bluetoothScanTimeMsController,
-            label: 'Bluetooth scan time (ms)',
+            label: 'Czas skanowania Bluetooth (ms)',
             min: 1000,
             max: 60 * 1000,
           ),
           _intField(
             controller: _wifiChannelScanTimeMsController,
-            label: 'WiFi channel scan time (ms)',
+            label: 'Czas skanowania kanału WiFi (ms)',
             min: 50,
             max: 5000,
           ),
           _intField(
             controller: _minimalEncounterCountController,
-            label: 'Minimal encounter count',
+            label: 'Minimalna liczba wykryć',
             min: 1,
             max: 100,
           ),
           _intField(
             controller: _minRssiController,
-            label: 'Min RSSI WiFi (dBm)',
+            label: 'Minimalne RSSI WiFi (dBm)',
             min: -100,
             max: 0,
           ),
           _intField(
             controller: _minRssiBleController,
-            label: 'Min RSSI BLE (dBm)',
+            label: 'Minimalne RSSI BLE (dBm)',
             min: -100,
             max: 0,
           ),
@@ -277,27 +252,13 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: _isSaving ? null : _save,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: Colors.blue.shade600,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
               child: _isSaving
                   ? const SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(
-                      _exists ? 'Save settings' : 'Create settings',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+                  : Text(_exists ? 'Zapisz ustawienia' : 'Utwórz ustawienia'),
             ),
           ),
         ],
