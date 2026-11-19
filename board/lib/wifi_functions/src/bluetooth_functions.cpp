@@ -66,6 +66,9 @@ void init_bluetooth_sniffer(ClientsBuffer *clientsBuffer, BoardSettings *boardSe
   BLEDevice::init("CrowdMonitor Edge");
   g_bleScan = BLEDevice::getScan();
   g_bleScan->setActiveScan(false);
+  // shouldParse=false: the parser appends every repeated advertisement to the device's payload,
+  // which in a crowded room grows until the heap runs out and aborts. We only need address + RSSI.
+  g_bleScan->setAdvertisedDeviceCallbacks(nullptr, false, false);
   g_bleScan->setDuplicateFilter(true);
 
   return;
