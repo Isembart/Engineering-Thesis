@@ -24,6 +24,10 @@ BoardSettings boardSettings;
 #define PROVISIONING_WINDOW_MS 3000
 // A freshly updated firmware that cannot reach the server for this many cycles reverts itself
 #define MAX_UNCONFIRMED_CYCLES 3
+// An eduroam account admits one device at a time, so a board sharing an account that connects
+// while another one is uploading gets no IP; the other one is gone a few seconds later
+#define WIFI_CONNECT_ATTEMPTS 3
+#define WIFI_RETRY_DELAY_MS 5000
 
 // Arduino core hook: keep a freshly updated firmware in the "pending verify" state instead of
 // confirming it at boot. check_firmware_update() confirms it once the server has been reached;
@@ -144,13 +148,24 @@ void loop()
     // SEND DATA
     LOG_SECTION("Cycle %lu: reporting", cycle);
     bool connected = false;
-    if (boardSettings.peap)
+    for (int attempt = 1; attempt <= WIFI_CONNECT_ATTEMPTS && !connected; ++attempt)
     {
-        connected = connect_to_wifi_peap(boardSettings.wifiSSID.c_str(), boardSettings.peapIdentity.c_str(), boardSettings.peapUsername.c_str(), boardSettings.peapPassword.c_str());
-    }
-    else
-    {
-        connected = connect_to_wifi(boardSettings.wifiSSID.c_str(), boardSettings.wifiPassword.c_str());
+        if (attempt > 1)
+        {
+            // Random extra wait so boards that collided do not retry in lockstep
+            const unsigned long waitMs = WIFI_RETRY_DELAY_MS + random(2000);
+            LOG("WIFI", "Attempt %d of %d failed, retrying in %lu ms", attempt - 1, WIFI_CONNECT_ATTEMPTS, waitMs);
+            delay(waitMs);
+        }
+
+        if (boardSettings.peap)
+        {
+            connected = connect_to_wifi_peap(boardSettings.wifiSSID.c_str(), boardSettings.peapIdentity.c_str(), boardSettings.peapUsername.c_str(), boardSettings.peapPassword.c_str());
+        }
+        else
+        {
+            connected = connect_to_wifi(boardSettings.wifiSSID.c_str(), boardSettings.wifiPassword.c_str());
+        }
     }
 
     bool serverReached = false;
@@ -180,8 +195,11 @@ void loop()
     }
 
     clientsBuffer.clear();
-    send_settings_to_server();
-    get_settings_from_server();
+    if (connected)
+    {
+        send_settings_to_server();
+        get_settings_from_server();
+    }
 
     WiFi.disconnect();
     WiFi.mode(WIFI_OFF);
