@@ -61,4 +61,32 @@ class DataAggregator {
     if (current < p.min!) return CrowdComparison.quieter;
     return CrowdComparison.usual;
   }
+
+  /// Today's upcoming hour (from [fromHour]) with the lowest usual count.
+  /// Null without history, or when the quietest hour is the current one.
+  static HourPrediction? quietestHour(List<HourPrediction> predictions, DateTime now, {int fromHour = 0}) {
+    final hourStart = DateTime(now.year, now.month, now.day, now.hour);
+    final upcoming = predictions.where((p) =>
+        p.mean != null &&
+        !p.timestamp.isBefore(hourStart) &&
+        p.timestamp.day == now.day &&
+        p.timestamp.hour >= fromHour);
+    if (upcoming.isEmpty) return null;
+    final best = upcoming.reduce((a, b) => b.mean! < a.mean! ? b : a);
+    return best.timestamp.isAtSameMomentAs(hourStart) ? null : best;
+  }
+
+  // ponytail: fixed heuristic thresholds, tune once there is real data.
+  static const _trendRatio = 1.25;
+  static const _trendMinDiff = 2.0;
+
+  /// Whether the next hour is usually clearly busier or quieter than this one.
+  /// Null when either hour has no history or the change is small.
+  static CrowdComparison? trend(HourPrediction? current, HourPrediction? next) {
+    final a = current?.mean, b = next?.mean;
+    if (a == null || b == null) return null;
+    if (b - a >= _trendMinDiff && b > a * _trendRatio) return CrowdComparison.busier;
+    if (a - b >= _trendMinDiff && a > b * _trendRatio) return CrowdComparison.quieter;
+    return null;
+  }
 }

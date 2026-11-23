@@ -20,10 +20,12 @@ void main() {
 
     await tester.pumpWidget(MaterialApp(home: DetailsScreen(board: Board(id: 1, boardMac: 1))));
     await tester.pump();
-    expect(find.byIcon(Icons.more_vert), findsNothing);
+    expect(find.byIcon(Icons.tune), findsNothing);
+    expect(find.byIcon(Icons.edit), findsNothing);
 
     ApiService.isAdmin.value = true;
     await tester.pump();
-    expect(find.byIcon(Icons.more_vert), findsOneWidget);
+    expect(find.byIcon(Icons.tune), findsOneWidget);
+    expect(find.byIcon(Icons.edit), findsOneWidget);
   });
 }

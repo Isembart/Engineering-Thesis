@@ -9,8 +9,28 @@ import '../models/board_settings.dart';
 import '../models/hour_prediction.dart';
 
 class ApiService {
-  static const String _defaultUrl = 'http://192.168.1.100:3000';
+  static const String _defaultUrl = 'https://inzynierka.bieda.it';
   static const String _serverUrlKey = 'server_url';
+  static const _timeout = Duration(seconds: 10);
+
+  // Top-level http calls (not a stored Client) so tests can swap it with http.runWithClient.
+  Future<http.Response> _get(Uri uri, {Map<String, String>? headers}) =>
+      http.get(uri, headers: headers).timeout(_timeout);
+
+  Future<http.Response> _put(Uri uri, {Map<String, String>? headers, Object? body}) =>
+      http.put(uri, headers: headers, body: body).timeout(_timeout);
+
+  /// Adds https:// when no scheme is given and drops trailing slashes. Null when there is no host.
+  static String? normalizeServerUrl(String raw) {
+    var url = raw.trim();
+    if (url.isEmpty) return null;
+    if (!url.contains('://')) url = 'https://$url';
+    while (url.endsWith('/')) {
+      url = url.substring(0, url.length - 1);
+    }
+    final host = Uri.tryParse(url)?.host ?? '';
+    return host.isEmpty ? null : url;
+  }
 
   Future<String> getServerUrl() async {
     final prefs = await SharedPreferences.getInstance();
@@ -54,7 +74,7 @@ class ApiService {
     // Any admin-only read works as the check: an unknown MAC answers 404 once the token
     // is accepted and 401 when it is not.
     final uri = Uri.parse('$baseUrl/board-settings').replace(queryParameters: {'mac_address': '0'});
-    final response = await http.get(uri, headers: {'Authorization': 'Bearer $token'});
+    final response = await _get(uri, headers: {'Authorization': 'Bearer $token'});
 
     if (response.statusCode == 401) {
       return false;
@@ -96,7 +116,7 @@ class ApiService {
 
   Future<List<Board>> getBoards() async {
     final url = await getServerUrl();
-    final response = await http.get(Uri.parse('$url/get-all-boards'));
+    final response = await _get(Uri.parse('$url/get-all-boards'));
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
@@ -121,7 +141,7 @@ class ApiService {
       if (end != null) 'end': _formatDateTime(end),
     });
 
-    final response = await http.get(uri);
+    final response = await _get(uri);
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
@@ -140,7 +160,7 @@ class ApiService {
       'end': _formatDateTime(end),
     });
 
-    final response = await http.get(uri);
+    final response = await _get(uri);
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
@@ -154,7 +174,7 @@ class ApiService {
     final baseUrl = await getServerUrl();
     final url = Uri.parse('$baseUrl/rename-board');
     
-    final response = await http.put(
+    final response = await _put(
       url,
       headers: _adminHeaders(),
       body: json.encode({
@@ -175,7 +195,7 @@ class ApiService {
       'mac_address': macAddress.toString(),
     });
 
-    final response = await http.get(uri, headers: _adminHeaders());
+    final response = await _get(uri, headers: _adminHeaders());
     await _checkAdminResponse(response);
 
     if (response.statusCode == 200) {
@@ -194,7 +214,7 @@ class ApiService {
       'mac_address': macAddress.toString(),
     });
 
-    final response = await http.put(
+    final response = await _put(
       uri,
       headers: _adminHeaders(),
       body: json.encode(settings.toJson()),

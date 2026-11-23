@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/board.dart';
 import '../models/hour_prediction.dart';
 import '../services/api_service.dart';
-import '../theme.dart';
 import '../utils/mac_address_formatter.dart';
+import 'crowd_comparison_row.dart';
 import 'status_block.dart';
 
 String boardDisplayName(Board board, [String? name]) {
@@ -11,12 +11,14 @@ String boardDisplayName(Board board, [String? name]) {
   return (name != null && name.isNotEmpty) ? name : MacAddressFormatter.format(board.boardMac);
 }
 
-/// One place on the home list: name and status on one line, count and usual range under it.
-class BoardCard extends StatefulWidget {
+/// One place on the home list. Display only: the home screen loads the data.
+class BoardCard extends StatelessWidget {
   final Board board;
   /// Null means offline.
   final double? current;
   final HourPrediction? prediction;
+  /// Extra lines, e.g. the last reading of an offline board.
+  final List<String> extra;
   final VoidCallback onTap;
 
   const BoardCard({
@@ -24,72 +26,51 @@ class BoardCard extends StatefulWidget {
     required this.board,
     required this.current,
     required this.prediction,
+    this.extra = const [],
     required this.onTap,
   });
 
   @override
-  State<BoardCard> createState() => _BoardCardState();
-}
-
-class _BoardCardState extends State<BoardCard> {
-  bool _pressed = false;
-
-  void _setPressed(bool value) => setState(() => _pressed = value);
-
-  @override
   Widget build(BuildContext context) {
-    final offline = widget.current == null;
-    final status = statusInfo(widget.current, widget.prediction);
+    final count = current;
 
     return Semantics(
       button: true,
       child: GestureDetector(
-        onTap: widget.onTap,
-        onTapDown: (_) => _setPressed(true),
-        onTapUp: (_) => _setPressed(false),
-        onTapCancel: () => _setPressed(false),
-        child: AnimatedScale(
-          scale: _pressed ? 0.98 : 1,
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOut,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-            decoration: panelDecoration(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        boardDisplayName(widget.board),
-                        style: heading(18).copyWith(color: offline ? Palette.muted : Palette.ink),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    StatusTag(info: status, offline: offline),
-                  ],
-                ),
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200, width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                boardDisplayName(board),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87),
+              ),
+              if (board.firmwareVersion != null)
                 ValueListenableBuilder<bool>(
                   valueListenable: ApiService.isAdmin,
-                  builder: (context, isAdmin, _) {
-                    final firmware = isAdmin ? widget.board.firmwareVersion : null;
-                    if (status.captions.isEmpty && firmware == null) return const SizedBox.shrink();
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(status.captions.join(', '), style: archivo(14, color: Palette.muted)),
-                          ),
-                          if (firmware != null) Text('v$firmware', style: archivo(12, color: Palette.muted)),
-                        ],
-                      ),
-                    );
-                  },
+                  builder: (context, isAdmin, _) => isAdmin
+                      ? Text(
+                          'Firmware v${board.firmwareVersion}',
+                          style: const TextStyle(fontSize: 12, color: Colors.black54),
+                        )
+                      : const SizedBox.shrink(),
                 ),
-              ],
-            ),
+              const SizedBox(height: 12),
+              if (count != null)
+                Text(
+                  countText(count),
+                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                ),
+              CrowdComparisonRow(current: count, prediction: prediction, extra: extra),
+            ],
           ),
         ),
       ),

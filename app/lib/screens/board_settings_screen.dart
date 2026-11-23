@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import '../models/board.dart';
 import '../models/board_settings.dart';
 import '../services/api_service.dart';
-import '../theme.dart';
 import '../widgets/board_card.dart';
+import '../widgets/content_width.dart';
 
 class BoardSettingsScreen extends StatefulWidget {
   final Board board;
@@ -113,7 +113,7 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
       if (!mounted) return;
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Nie udało się zapisać ustawień: $e')),
+        SnackBar(content: Text('Nie udało się zapisać ustawień')),
       );
     }
   }
@@ -170,7 +170,7 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Ustawienia: ${boardDisplayName(widget.board)}')),
-      body: _buildBody(),
+      body: ContentWidth(child: _buildBody()),
     );
   }
 
@@ -184,7 +184,7 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(_error!, style: archivo(18, weight: FontWeight.w600)),
+            Text(_error!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 16),
             ElevatedButton(onPressed: _loadSettings, child: const Text('Spróbuj ponownie')),
           ],
@@ -195,14 +195,14 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
     return Form(
       key: _formKey,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         children: [
           if (!_exists)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: Text(
                 'Ten czujnik nie ma jeszcze ustawień. Formularz zawiera jego wartości domyślne.',
-                style: archivo(14, color: Palette.muted),
+                style: TextStyle(color: Colors.grey.shade700),
               ),
             ),
           _intField(
@@ -252,13 +252,21 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: _isSaving ? null : _save,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: Colors.blue.shade600,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               child: _isSaving
                   ? const SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : Text(_exists ? 'Zapisz ustawienia' : 'Utwórz ustawienia'),
+                  : Text(
+                      _exists ? 'Zapisz ustawienia' : 'Utwórz ustawienia',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
             ),
           ),
         ],

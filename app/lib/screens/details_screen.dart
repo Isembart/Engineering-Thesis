@@ -5,8 +5,9 @@ import '../models/board.dart';
 import '../models/hour_prediction.dart';
 import '../services/api_service.dart';
 import '../services/data_aggregator.dart';
-import '../theme.dart';
 import '../widgets/board_card.dart';
+import '../widgets/content_width.dart';
+import '../widgets/crowd_comparison_row.dart';
 import '../widgets/status_block.dart';
 import '../widgets/week_heatmap.dart';
 import 'board_settings_screen.dart';
@@ -40,6 +41,9 @@ class _DetailsScreenState extends State<DetailsScreen> {
   DateTime _selectedDate = DateTime.now();
   /// Null means offline.
   double? _currentClients;
+  /// Last reading, shown only while offline.
+  String? _offlineNote;
+  late final AppLifecycleListener _lifecycle;
 
   bool _isToday(DateTime date) {
     final now = DateTime.now();
@@ -50,7 +54,14 @@ class _DetailsScreenState extends State<DetailsScreen> {
   void initState() {
     super.initState();
     _boardName = widget.board.name ?? '';
+    _lifecycle = AppLifecycleListener(onResume: _loadData);
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -65,28 +76,28 @@ class _DetailsScreenState extends State<DetailsScreen> {
       final start = DateTime(d.year, d.month, d.day, _selectedTimeframe == Timeframe.daytime ? 6 : 0);
       final end = DateTime(d.year, d.month, d.day, 23, 59, 59);
 
-      final records = await _apiService.getBoardData(widget.board.boardMac, start: start, end: end);
-      final recentRecords = await _apiService.getBoardData(
-        widget.board.boardMac,
-        start: now.subtract(const Duration(minutes: 15)),
-        end: now,
-      );
-
-      // Predictions are optional: on failure the chart shows only actual data.
       final dayEnd = DateTime(d.year, d.month, d.day + 1);
       final today = DateTime(now.year, now.month, now.day);
       final mac = widget.board.boardMac;
-      final [dayPrediction, weekPrediction] = await Future.wait([
-        _apiService.getBoardPrediction(mac, start, dayEnd),
-        _apiService.getBoardPrediction(mac, today, DateTime(now.year, now.month, now.day + 7)),
-      ].map((f) => f.catchError((_) => <HourPrediction>[])));
+      // Predictions are optional: on failure the chart shows only actual data.
+      final (records, recentRecords, dayPrediction, weekPrediction) = await (
+        _apiService.getBoardData(mac, start: start, end: end),
+        _apiService.getBoardData(mac, start: now.subtract(const Duration(minutes: 15)), end: now),
+        _apiService.getBoardPrediction(mac, start, dayEnd).catchError((_) => <HourPrediction>[]),
+        _apiService
+            .getBoardPrediction(mac, today, DateTime(now.year, now.month, now.day + 7))
+            .catchError((_) => <HourPrediction>[]),
+      ).wait;
+      final current = DataAggregator.getCurrentCrowdLevel(recentRecords);
+      final offline = current == null ? await offlineNote(_apiService, mac, now) : null;
 
       if (!mounted) return;
       setState(() {
         _buckets = DataAggregator.aggregateToFixedBuckets(records, start, end);
         _dayPrediction = {for (final p in dayPrediction) p.timestamp.millisecondsSinceEpoch: p};
         _weekPrediction = weekPrediction;
-        _currentClients = DataAggregator.getCurrentCrowdLevel(recentRecords);
+        _currentClients = current;
+        _offlineNote = offline;
         _isLoading = false;
         _isBusy = false;
       });
@@ -99,6 +110,9 @@ class _DetailsScreenState extends State<DetailsScreen> {
       });
     }
   }
+
+  /// Calendar day, not 24 h, so DST changes do not skip or repeat a day.
+  DateTime _shiftDay(int days) => DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day + days);
 
   void _showDate(DateTime date) {
     setState(() => _selectedDate = date);
@@ -120,7 +134,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
     final newName = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Zmień nazwę', style: heading(20)),
+        title: const Text('Zmień nazwę'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(labelText: 'Nazwa miejsca'),
@@ -149,7 +163,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
       });
       messenger.showSnackBar(const SnackBar(content: Text('Zmieniono nazwę')));
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Nie udało się zmienić nazwy: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Nie udało się zmienić nazwy')));
     }
   }
 
@@ -163,24 +177,28 @@ class _DetailsScreenState extends State<DetailsScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
+          title: Text(boardDisplayName(widget.board, _boardName)),
           // Admin controls are not built at all in guest mode
           actions: [
             ValueListenableBuilder<bool>(
               valueListenable: ApiService.isAdmin,
               builder: (context, isAdmin, _) {
                 if (!isAdmin) return const SizedBox.shrink();
-                return PopupMenuButton<VoidCallback>(
-                  icon: const Icon(Icons.more_vert),
-                  tooltip: 'Więcej',
-                  onSelected: (action) => action(),
-                  itemBuilder: (context) => [
-                    PopupMenuItem(value: _showRenameDialog, child: const Text('Zmień nazwę')),
-                    PopupMenuItem(
-                      value: () => Navigator.push(
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.tune),
+                      tooltip: 'Ustawienia czujnika',
+                      onPressed: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => BoardSettingsScreen(board: widget.board)),
                       ),
-                      child: const Text('Ustawienia czujnika'),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      tooltip: 'Zmień nazwę',
+                      onPressed: _showRenameDialog,
                     ),
                   ],
                 );
@@ -194,125 +212,191 @@ class _DetailsScreenState extends State<DetailsScreen> {
                 : const SizedBox(height: 2),
           ),
         ),
-        body: RefreshIndicator(
-          onRefresh: _loadData,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-            children: [
-              Text(boardDisplayName(widget.board, _boardName), style: heading(30)),
-              const SizedBox(height: 16),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: _buildContent(),
+        body: ContentWidth(child: _buildBody()),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+
+    if (_error != null) {
+      return RefreshIndicator(
+        onRefresh: _loadData,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.6,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(_error!, style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(onPressed: _loadData, child: const Text('Spróbuj ponownie')),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final day = DateFormat('EEEE').format(_selectedDate);
+    final dateLabel = _isToday(_selectedDate)
+        ? 'Dziś, $day'
+        : DateFormat('EEEE, d MMM').format(_selectedDate);
+    const sectionTitle = TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black87);
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildCurrentStatusCard(),
+            const SizedBox(height: 32),
+            const Text('Trendy', style: sectionTitle),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left),
+                        tooltip: 'Poprzedni dzień',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        onPressed: () => _showDate(_shiftDay(-1)),
+                      ),
+                      Flexible(
+                        child: TextButton(
+                          onPressed: _selectCustomDate,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            dateLabel[0].toUpperCase() + dateLabel.substring(1),
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        tooltip: 'Następny dzień',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        onPressed: _isToday(_selectedDate) ? null : () => _showDate(_shiftDay(1)),
+                      ),
+                    ],
+                  ),
+                ),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<Timeframe>(
+                    value: _selectedTimeframe,
+                    isDense: true,
+                    items: const [
+                      DropdownMenuItem(value: Timeframe.daytime, child: Text('6:00-23:00')),
+                      DropdownMenuItem(value: Timeframe.fullDay, child: Text('Cała doba')),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => _selectedTimeframe = value);
+                      _loadData();
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildChartCard(),
+            const SizedBox(height: 32),
+            const Text('Typowy tydzień', style: sectionTitle),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: _cardDecoration,
+              child: _weekPrediction.isEmpty
+                  ? const Text('Brak prognozy dla tego miejsca.')
+                  : WeekHeatmap(
+                      week: _weekPrediction,
+                      fromHour: _selectedTimeframe == Timeframe.daytime ? 6 : 0,
+                      toHour: 24,
+                    ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildContent() {
-    if (_isLoading) {
-      return const Column(
-        key: ValueKey('loading'),
-        children: [Skeleton(height: 130), SizedBox(height: 32), Skeleton(height: 300)],
-      );
-    }
-    if (_error != null) {
-      return Padding(
-        key: const ValueKey('error'),
-        padding: const EdgeInsets.only(top: 48),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(_error!, style: archivo(18, weight: FontWeight.w600)),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: _loadData, child: const Text('Spróbuj ponownie')),
-          ],
-        ),
-      );
-    }
+  static final _cardDecoration = BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: Colors.grey.shade200, width: 1),
+  );
+  static const _blue = Color(0xFF3B82F6);
 
-    final dateLabel = _isToday(_selectedDate) ? 'Dziś' : DateFormat('EEEE, d MMM').format(_selectedDate);
-
-    return Column(
-      key: const ValueKey('content'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: panelDecoration(),
-          child: StatusBlock(current: _currentClients, prediction: _currentHourPrediction()),
-        ),
-        const SizedBox(height: 32),
-        Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: _selectCustomDate,
-                child: Text(
-                  dateLabel[0].toUpperCase() + dateLabel.substring(1),
-                  style: heading(22).copyWith(decoration: TextDecoration.underline, decorationColor: Palette.line),
-                ),
+  Widget _buildCurrentStatusCard() {
+    final current = _currentClients;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: _cardDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Teraz',
+            style: TextStyle(fontSize: 16, color: Colors.black54, fontWeight: FontWeight.w500),
+          ),
+          if (current != null) ...[
+            const SizedBox(height: 8),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                countText(current),
+                style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.black87),
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.chevron_left),
-              tooltip: 'Poprzedni dzień',
-              onPressed: () => _showDate(_selectedDate.subtract(const Duration(days: 1))),
-            ),
-            IconButton(
-              icon: const Icon(Icons.chevron_right),
-              tooltip: 'Następny dzień',
-              onPressed: _isToday(_selectedDate) ? null : () => _showDate(_selectedDate.add(const Duration(days: 1))),
-            ),
           ],
-        ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: SegmentedButton<Timeframe>(
-            segments: const [
-              ButtonSegment(value: Timeframe.daytime, label: Text('6–23')),
-              ButtonSegment(value: Timeframe.fullDay, label: Text('Cała doba')),
-            ],
-            selected: {_selectedTimeframe},
-            showSelectedIcon: false,
-            onSelectionChanged: (selection) {
-              setState(() => _selectedTimeframe = selection.first);
-              _loadData();
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
-        _buildChartCard(),
-        const SizedBox(height: 32),
-        Text('Typowy tydzień', style: heading(22)),
-        const SizedBox(height: 4),
-        Text('Zwykła liczba osób. Dotknij pola, aby zobaczyć szczegóły.',
-            style: archivo(14, color: Palette.muted)),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.fromLTRB(8, 12, 12, 12),
-          decoration: panelDecoration(),
-          child: _weekPrediction.isEmpty
-              ? Text('Brak prognozy dla tego miejsca.', style: archivo(14, color: Palette.muted))
-              : WeekHeatmap(
-                  week: _weekPrediction,
-                  fromHour: _selectedTimeframe == Timeframe.daytime ? 6 : 0,
-                  toHour: 24,
-                ),
-        ),
-      ],
+          CrowdComparisonRow(current: current, prediction: _currentHourPrediction(), extra: _hints()),
+        ],
+      ),
     );
   }
 
+  HourPrediction? _hourPrediction(DateTime hourStart) =>
+      _weekPrediction.where((p) => p.timestamp.isAtSameMomentAs(hourStart)).firstOrNull;
+
   HourPrediction? _currentHourPrediction() {
     final now = DateTime.now();
+    return _hourPrediction(DateTime(now.year, now.month, now.day, now.hour));
+  }
+
+  /// Lines under the status: last reading when offline, otherwise the next-hour trend
+  /// and today's quietest upcoming hour.
+  List<String> _hints() {
+    if (_currentClients == null) return [?_offlineNote];
+    final now = DateTime.now();
     final hourStart = DateTime(now.year, now.month, now.day, now.hour);
-    return _weekPrediction.where((p) => p.timestamp.isAtSameMomentAs(hourStart)).firstOrNull;
+    final trend = DataAggregator.trend(_hourPrediction(hourStart), _hourPrediction(hourStart.add(const Duration(hours: 1))));
+    final quiet = DataAggregator.quietestHour(_weekPrediction, now,
+        fromHour: _selectedTimeframe == Timeframe.daytime ? 6 : 0);
+    return [
+      if (trend == CrowdComparison.busier) 'zwykle zaraz robi się tłoczniej',
+      if (trend == CrowdComparison.quieter) 'zwykle zaraz robi się luźniej',
+      if (quiet != null)
+        'najluźniej dziś ok. ${DateFormat('H:00').format(quiet.timestamp)} (zwykle ${countText(quiet.mean!)})',
+    ];
   }
 
   /// Y axis top and grid step, on round numbers so the top label sits on a grid line.
@@ -342,31 +426,38 @@ class _DetailsScreenState extends State<DetailsScreen> {
     final values = [...actual, ...rangeMax].where((s) => s.isNotNull()).map((s) => s.y);
     if (values.isEmpty) {
       return Container(
-        height: 200,
+        height: 300,
         alignment: Alignment.center,
-        decoration: panelDecoration(),
-        child: Text('Brak danych dla tego dnia.', style: archivo(14, color: Palette.muted)),
+        decoration: _cardDecoration,
+        child: const Text('Brak danych dla tego dnia.'),
       );
     }
     final (maxY, step) = _yScale(values.reduce((a, b) => a > b ? a : b));
     final weeks = predictions.map((p) => p?.samples ?? 0).fold(0, (a, b) => b > a ? b : a);
-    final label = archivo(11, color: Palette.muted);
+    final label = TextStyle(color: Colors.grey.shade500, fontSize: 10);
 
     // Where "now" falls, in bucket units; null when it is not on this chart.
     final nowIndex = _buckets.indexWhere((b) => !now.isBefore(b.startTime) && now.isBefore(b.endTime));
     final nowX = nowIndex < 0 ? null : nowIndex + now.minute / 60;
 
-    LineChartBarData line(List<FlSpot> spots, Color color, double width, {List<int>? dash, bool dots = false}) =>
+    LineChartBarData line(List<FlSpot> spots, Color color, double width, {List<int>? dash}) =>
         LineChartBarData(
           spots: spots,
           color: color,
           barWidth: width,
           dashArray: dash,
-          dotData: FlDotData(
-            show: dots,
-            getDotPainter: (_, _, _, _) => FlDotCirclePainter(radius: 2.5, color: color, strokeWidth: 0),
-          ),
+          isCurved: true,
+          preventCurveOverShooting: true,
+          dotData: const FlDotData(show: false),
         );
+
+    // A lone hour between two gaps has no neighbours to draw a line to, so it gets a dot.
+    bool gapAt(int i) => i < 0 || i >= n || actual[i].isNull();
+    final actualLine = line(actual, _blue, 2.5).copyWith(
+      dotData: FlDotData(
+        checkToShowDot: (s, _) => gapAt(s.x.toInt() - 1) && gapAt(s.x.toInt() + 1),
+      ),
+    );
 
     final chart = LineChart(
       duration: const Duration(milliseconds: 250),
@@ -379,7 +470,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
         gridData: FlGridData(
           drawVerticalLine: false,
           horizontalInterval: step,
-          getDrawingHorizontalLine: (_) => const FlLine(color: Palette.heatLow, strokeWidth: 1),
+          getDrawingHorizontalLine: (_) => FlLine(color: Colors.grey.shade100, strokeWidth: 1),
         ),
         borderData: FlBorderData(show: false),
         extraLinesData: ExtraLinesData(
@@ -387,13 +478,13 @@ class _DetailsScreenState extends State<DetailsScreen> {
             if (nowX != null)
               VerticalLine(
                 x: nowX,
-                color: Palette.muted,
+                color: Colors.grey.shade500,
                 strokeWidth: 1,
                 dashArray: [3, 3],
                 label: VerticalLineLabel(
                   show: true,
                   alignment: Alignment.topRight,
-                  style: archivo(11, weight: FontWeight.w600, color: Palette.muted),
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 10, fontWeight: FontWeight.w600),
                   labelResolver: (_) => 'teraz',
                 ),
               ),
@@ -403,24 +494,23 @@ class _DetailsScreenState extends State<DetailsScreen> {
         lineBarsData: [
           line(rangeMax, Colors.transparent, 0),
           line(rangeMin, Colors.transparent, 0),
-          line(usual, Palette.muted, 1.5, dash: [4, 4]),
-          line(actual, Palette.accent, 2.5, dots: true),
+          line(usual, _blue.withValues(alpha: 0.6), 1.5, dash: [4, 4]),
+          actualLine,
         ],
-        betweenBarsData: [BetweenBarsData(fromIndex: 0, toIndex: 1, color: Palette.learning)],
+        betweenBarsData: [BetweenBarsData(fromIndex: 0, toIndex: 1, color: _blue.withValues(alpha: 0.15))],
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => Palette.ink,
+            getTooltipColor: (_) => Colors.black87,
             fitInsideHorizontally: true,
             fitInsideVertically: true,
             getTooltipItems: (touched) => touched.map((s) {
               final i = s.x.toInt();
               final p = predictions[i];
-              final header = identical(s, touched.first) ? '${DateFormat('HH:mm').format(_buckets[i].startTime)}\n' : '';
-              final style = archivo(12, color: Colors.white);
+              final header = identical(s, touched.first) ? '${DateFormat('EEE HH:mm').format(_buckets[i].startTime)}\n' : '';
+              const style = TextStyle(color: Colors.white, fontSize: 12);
               return switch (s.barIndex) {
                 0 => LineTooltipItem('${header}typowo ${p!.min}–${p.max}', style),
-                2 => LineTooltipItem('${header}zwykle ok. ${s.y.round()}', style),
-                3 => LineTooltipItem('${header}zmierzono ok. ${s.y.round()}', style.copyWith(fontWeight: FontWeight.w700)),
+                3 => LineTooltipItem('${header}zmierzono ${s.y.round()}', style.copyWith(fontWeight: FontWeight.bold)),
                 _ => null,
               };
             }).toList(),
@@ -432,7 +522,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 32,
+              reservedSize: 28,
               interval: step,
               getTitlesWidget: (value, meta) =>
                   value % step == 0 ? Text(value.toInt().toString(), style: label) : const SizedBox.shrink(),
@@ -441,13 +531,13 @@ class _DetailsScreenState extends State<DetailsScreen> {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 24,
+              reservedSize: 28,
               interval: 3,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
                 if (index < 0 || index >= n) return const SizedBox.shrink();
                 return Padding(
-                  padding: const EdgeInsets.only(top: 6),
+                  padding: const EdgeInsets.only(top: 8),
                   child: Text(DateFormat('H:mm').format(_buckets[index].startTime), style: label),
                 );
               },
@@ -459,31 +549,28 @@ class _DetailsScreenState extends State<DetailsScreen> {
 
     Widget legend(Widget mark, String text) => Row(
           mainAxisSize: MainAxisSize.min,
-          children: [mark, const SizedBox(width: 6), Text(text, style: label)],
+          children: [mark, const SizedBox(width: 4), Text(text, style: label)],
         );
 
     return Container(
-      height: 320,
-      padding: const EdgeInsets.fromLTRB(4, 20, 16, 12),
-      decoration: panelDecoration(),
+      height: 380,
+      padding: const EdgeInsets.fromLTRB(8, 24, 16, 12),
+      decoration: _cardDecoration,
       child: Column(
         children: [
           Expanded(child: chart),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.only(left: 12),
-            child: Wrap(
-              spacing: 14,
-              runSpacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                legend(Container(width: 14, height: 3, color: Palette.accent), 'zmierzono'),
-                legend(Container(width: 14, height: 2, color: Palette.muted), 'zwykle'),
-                legend(Container(width: 14, height: 10, color: Palette.learning), 'typowy zakres'),
-                if (_dayPrediction.isNotEmpty)
-                  Text(weeks == 0 ? 'brak historii dla tego dnia' : 'na podstawie $weeks z 4 tygodni', style: label),
-              ],
-            ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              legend(Container(width: 14, height: 3, color: _blue), 'zmierzono'),
+              legend(Container(width: 14, height: 2, color: _blue.withValues(alpha: 0.6)), 'zwykle'),
+              legend(Container(width: 14, height: 10, color: _blue.withValues(alpha: 0.15)), 'typowy zakres'),
+              if (_dayPrediction.isNotEmpty)
+                Text(weeks == 0 ? 'brak historii dla tego dnia' : 'na podstawie $weeks z 4 tygodni', style: label),
+            ],
           ),
         ],
       ),

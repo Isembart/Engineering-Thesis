@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/api_service.dart';
+import '../widgets/content_width.dart';
 
 /// Where an admin token is entered (pasted, or scanned from the QR code the server
 /// prints on startup) and where admin mode is left again.
@@ -62,11 +63,13 @@ class _AdminAccessScreenState extends State<AdminAccessScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Dostęp administratora')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: ValueListenableBuilder<bool>(
-          valueListenable: ApiService.isAdmin,
-          builder: (context, isAdmin, _) => isAdmin ? _buildAdmin() : _buildGuest(),
+      body: ContentWidth(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ValueListenableBuilder<bool>(
+            valueListenable: ApiService.isAdmin,
+            builder: (context, isAdmin, _) => isAdmin ? _buildAdmin() : _buildGuest(),
+          ),
         ),
       ),
     );
