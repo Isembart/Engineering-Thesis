@@ -55,6 +55,15 @@ void main() {
     expect(lastSeenText(DateTime(2026, 7, 5, 22), now), 'ostatni odczyt wczoraj ok. 22:00');
   });
 
+  test('status for offline, no history and busier', () {
+    final p = HourPrediction(timestamp: DateTime(2026), samples: 2, mean: 5, min: 4, max: 6);
+    expect(statusInfo(null, p).label, 'Brak sygnału');
+    expect(statusInfo(3, null).label, isNull);
+    expect(statusInfo(3, null).caption, 'jeszcze uczymy się tego miejsca');
+    expect(statusInfo(7, p).label, 'Tłoczniej niż zwykle');
+    expect(statusInfo(7, p).caption, 'zwykle 4–6 o tej porze');
+  });
+
   test('missing hours are null, not 0', () {
     final start = DateTime(2026, 7, 6, 8);
     final records = [
@@ -120,7 +129,9 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: DetailsScreen(board: Board(id: 1, boardMac: 1))));
       await tester.pumpAndSettle();
       // Switch to the full day so the gap at 01:00 is inside the chart.
-      await tester.tap(find.text('Cała doba'));
+      await tester.tap(find.text('6:00-23:00'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cała doba').last);
       await tester.pumpAndSettle();
     }, () => mock);
 

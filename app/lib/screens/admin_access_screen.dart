@@ -63,7 +63,7 @@ class _AdminAccessScreenState extends State<AdminAccessScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Dostęp administratora')),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: ValueListenableBuilder<bool>(
           valueListenable: ApiService.isAdmin,
           builder: (context, isAdmin, _) => isAdmin ? _buildAdmin() : _buildGuest(),

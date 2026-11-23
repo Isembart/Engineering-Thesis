@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import '../theme.dart';
 import 'admin_access_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -58,13 +57,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Serwer', style: heading(20)),
-                  const SizedBox(height: 4),
-                  Text('Adres serwera Twojej instytucji.', style: archivo(14, color: Palette.muted)),
+                  const Text(
+                    'Serwer',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _urlController,
@@ -75,8 +75,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       hintText: 'https://example.org',
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(onPressed: _saveUrl, child: const Text('Zapisz')),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _saveUrl,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: Colors.blue.shade600,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    child: const Text(
+                      'Zapisz',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
+                  ),
                   const Spacer(),
                   TextButton(
                     onPressed: () => Navigator.push(
