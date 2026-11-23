@@ -113,7 +113,7 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
       if (!mounted) return;
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Nie udało się zapisać ustawień: $e')),
+        SnackBar(content: Text('Nie udało się zapisać ustawień')),
       );
     }
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/hour_prediction.dart';
+import '../services/api_service.dart';
 import '../services/data_aggregator.dart';
 import '../theme.dart';
 import '../utils/plural.dart';
@@ -10,15 +12,42 @@ String countText(double count) {
   return n == 0 ? 'pusto' : 'ok. ${people(n)}';
 }
 
+/// "ostatni odczyt dziś ok. 14:00" / "wczoraj ok. 22:00". Records are hourly buckets,
+/// so only the hour is known.
+String lastSeenText(DateTime lastSeen, DateTime now) {
+  final day = DateTime(lastSeen.year, lastSeen.month, lastSeen.day);
+  final today = DateTime(now.year, now.month, now.day);
+  final when = day == today
+      ? 'dziś'
+      : day == DateTime(now.year, now.month, now.day - 1)
+          ? 'wczoraj'
+          : DateFormat('d MMM').format(lastSeen);
+  return 'ostatni odczyt $when ok. ${DateFormat('H:00').format(lastSeen)}';
+}
+
+/// Caption for an offline board: when it last sent anything in the past 24 hours.
+/// Null when the server could not be asked.
+Future<String?> offlineNote(ApiService api, int mac, DateTime now) async {
+  try {
+    final records = await api.getBoardData(mac, start: now.subtract(const Duration(hours: 24)), end: now);
+    if (records.isEmpty) return 'brak odczytów od doby';
+    final last = records.map((r) => r.timestamp).reduce((a, b) => b.isAfter(a) ? b : a);
+    return lastSeenText(last, now);
+  } catch (_) {
+    return null; // unknown, not "nothing for a day"
+  }
+}
+
 typedef StatusInfo = ({String title, Color color, Color textColor, List<String> captions});
 
 /// What to show for a place: status word, its colors, and the lines under it.
 /// [current] null means offline: nothing arrived in the last 15 minutes.
-StatusInfo statusInfo(double? current, HourPrediction? prediction) {
+/// [extra] lines go after the usual captions (hints, last reading).
+StatusInfo statusInfo(double? current, HourPrediction? prediction, [List<String> extra = const []]) {
   final c = current;
   final p = prediction;
   if (c == null) {
-    return (title: 'Brak sygnału', color: Palette.offline, textColor: Palette.ink, captions: const []);
+    return (title: 'Brak sygnału', color: Palette.offline, textColor: Palette.ink, captions: extra);
   }
   final comparison = p == null ? null : DataAggregator.compare(c, p);
   if (comparison == null) {
@@ -27,11 +56,11 @@ StatusInfo statusInfo(double? current, HourPrediction? prediction) {
       title: count[0].toUpperCase() + count.substring(1),
       color: Palette.learning,
       textColor: Palette.ink,
-      captions: const ['jeszcze uczymy się tego miejsca'],
+      captions: ['jeszcze uczymy się tego miejsca', ...extra],
     );
   }
   final range = p!.min == p.max ? '${p.min}' : '${p.min}–${p.max}';
-  final captions = [countText(c), 'zwykle $range o tej porze'];
+  final captions = [countText(c), 'zwykle $range o tej porze', ...extra];
   return switch (comparison) {
     CrowdComparison.quieter =>
       (title: 'Luźniej niż zwykle', color: Palette.quieter, textColor: Palette.ink, captions: captions),
@@ -46,12 +75,13 @@ StatusInfo statusInfo(double? current, HourPrediction? prediction) {
 class StatusBlock extends StatelessWidget {
   final double? current;
   final HourPrediction? prediction;
+  final List<String> extra;
 
-  const StatusBlock({super.key, required this.current, required this.prediction});
+  const StatusBlock({super.key, required this.current, required this.prediction, this.extra = const []});
 
   @override
   Widget build(BuildContext context) {
-    final s = statusInfo(current, prediction);
+    final s = statusInfo(current, prediction, extra);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -71,7 +101,7 @@ class StatusBlock extends StatelessWidget {
                 for (final (i, line) in s.captions.indexed)
                   Text(
                     line,
-                    style: i == 0 && s.captions.length > 1
+                    style: i == 0 && current != null && line == countText(current!)
                         ? archivo(18, weight: FontWeight.w600)
                         : archivo(14, color: Palette.muted),
                   ),

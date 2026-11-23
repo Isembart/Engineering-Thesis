@@ -17,6 +17,8 @@ class BoardCard extends StatefulWidget {
   /// Null means offline.
   final double? current;
   final HourPrediction? prediction;
+  /// Extra caption lines, e.g. the last reading of an offline board.
+  final List<String> extra;
   final VoidCallback onTap;
 
   const BoardCard({
@@ -24,6 +26,7 @@ class BoardCard extends StatefulWidget {
     required this.board,
     required this.current,
     required this.prediction,
+    this.extra = const [],
     required this.onTap,
   });
 
@@ -39,7 +42,7 @@ class _BoardCardState extends State<BoardCard> {
   @override
   Widget build(BuildContext context) {
     final offline = widget.current == null;
-    final status = statusInfo(widget.current, widget.prediction);
+    final status = statusInfo(widget.current, widget.prediction, widget.extra);
 
     return Semantics(
       button: true,

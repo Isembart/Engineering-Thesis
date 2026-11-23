@@ -30,16 +30,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _saveUrl() async {
-    final newUrl = _urlController.text.trim();
-    if (newUrl.isNotEmpty) {
-      await _apiService.setServerUrl(newUrl);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Zapisano adres serwera')),
-        );
-        Navigator.pop(context, true); // Return true to indicate change
-      }
+    final newUrl = ApiService.normalizeServerUrl(_urlController.text);
+    if (newUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nieprawidłowy adres serwera')),
+      );
+      return;
     }
+    await _apiService.setServerUrl(newUrl);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Zapisano adres serwera')),
+    );
+    Navigator.pop(context, true); // Return true to indicate change
   }
 
   @override

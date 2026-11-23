@@ -6,10 +6,11 @@ import '../services/api_service.dart';
 import '../services/data_aggregator.dart';
 import '../theme.dart';
 import '../widgets/board_card.dart';
+import '../widgets/status_block.dart';
 import 'details_screen.dart';
 import 'settings_screen.dart';
 
-typedef _Entry = ({Board board, double? current, HourPrediction? prediction});
+typedef _Entry = ({Board board, double? current, HourPrediction? prediction, List<String> extra});
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,11 +25,19 @@ class _HomeScreenState extends State<HomeScreen> {
   List<_Entry>? _entries;
   String? _error;
   DateTime _loadedAt = DateTime.now();
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
     super.initState();
+    _lifecycle = AppLifecycleListener(onResume: _load);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
   }
 
   /// Last 15 minutes and this hour's prediction. A failed call reads as offline / no history.
@@ -51,7 +60,12 @@ class _HomeScreenState extends State<HomeScreen> {
           .getBoardPrediction(board.boardMac, hourStart, hourStart.add(const Duration(hours: 1)))
           .catchError((_) => <HourPrediction>[]),
     ).wait;
-    return (board: board, current: count, prediction: predictions.firstOrNull);
+    return (
+      board: board,
+      current: count,
+      prediction: predictions.firstOrNull,
+      extra: [if (count == null) ?await offlineNote(_apiService, board.boardMac, now)],
+    );
   }
 
   Future<void> _load() async {
@@ -166,6 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
             board: e.board,
             current: e.current,
             prediction: e.prediction,
+            extra: e.extra,
             onTap: () => _openDetails(e.board),
           ),
           const SizedBox(height: 12),

@@ -10,11 +10,51 @@ import 'package:crowdness_app/models/board.dart';
 import 'package:crowdness_app/models/board_data_record.dart';
 import 'package:crowdness_app/models/hour_prediction.dart';
 import 'package:crowdness_app/screens/details_screen.dart';
+import 'package:crowdness_app/services/api_service.dart';
 import 'package:crowdness_app/services/data_aggregator.dart';
+import 'package:crowdness_app/widgets/status_block.dart';
 import 'package:crowdness_app/utils/plural.dart';
 import 'package:crowdness_app/widgets/week_heatmap.dart';
 
 void main() {
+  test('server url normalization', () {
+    expect(ApiService.normalizeServerUrl(' inzynierka.bieda.it/ '), 'https://inzynierka.bieda.it');
+    expect(ApiService.normalizeServerUrl('http://10.0.0.1:3000'), 'http://10.0.0.1:3000');
+    expect(ApiService.normalizeServerUrl(''), isNull);
+    expect(ApiService.normalizeServerUrl('://'), isNull);
+  });
+
+  HourPrediction hp(DateTime t, double? mean) =>
+      HourPrediction(timestamp: t, samples: mean == null ? 0 : 2, mean: mean, min: mean?.round(), max: mean?.round());
+
+  test('quietest upcoming hour today', () {
+    final now = DateTime(2026, 7, 6, 10, 30);
+    final preds = [
+      hp(DateTime(2026, 7, 6, 8), 0), // past
+      hp(DateTime(2026, 7, 6, 10), 9),
+      hp(DateTime(2026, 7, 6, 12), 3),
+      hp(DateTime(2026, 7, 6, 13), null),
+      hp(DateTime(2026, 7, 7, 9), 1), // tomorrow
+    ];
+    expect(DataAggregator.quietestHour(preds, now)!.timestamp.hour, 12);
+    // Quietest is the current hour: nothing to suggest.
+    expect(DataAggregator.quietestHour([hp(DateTime(2026, 7, 6, 10), 1), ...preds], now), isNull);
+  });
+
+  test('next-hour trend', () {
+    final t = DateTime(2026);
+    expect(DataAggregator.trend(hp(t, 4), hp(t, 10)), CrowdComparison.busier);
+    expect(DataAggregator.trend(hp(t, 10), hp(t, 4)), CrowdComparison.quieter);
+    expect(DataAggregator.trend(hp(t, 10), hp(t, 11)), isNull);
+    expect(DataAggregator.trend(hp(t, 10), null), isNull);
+  });
+
+  test('last reading text', () {
+    final now = DateTime(2026, 7, 6, 10, 30);
+    expect(lastSeenText(DateTime(2026, 7, 6, 8), now), 'ostatni odczyt dziś ok. 8:00');
+    expect(lastSeenText(DateTime(2026, 7, 5, 22), now), 'ostatni odczyt wczoraj ok. 22:00');
+  });
+
   test('missing hours are null, not 0', () {
     final start = DateTime(2026, 7, 6, 8);
     final records = [

@@ -40,6 +40,9 @@ class _DetailsScreenState extends State<DetailsScreen> {
   DateTime _selectedDate = DateTime.now();
   /// Null means offline.
   double? _currentClients;
+  /// Last reading, shown only while offline.
+  String? _offlineNote;
+  late final AppLifecycleListener _lifecycle;
 
   bool _isToday(DateTime date) {
     final now = DateTime.now();
@@ -50,7 +53,14 @@ class _DetailsScreenState extends State<DetailsScreen> {
   void initState() {
     super.initState();
     _boardName = widget.board.name ?? '';
+    _lifecycle = AppLifecycleListener(onResume: _loadData);
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -65,28 +75,28 @@ class _DetailsScreenState extends State<DetailsScreen> {
       final start = DateTime(d.year, d.month, d.day, _selectedTimeframe == Timeframe.daytime ? 6 : 0);
       final end = DateTime(d.year, d.month, d.day, 23, 59, 59);
 
-      final records = await _apiService.getBoardData(widget.board.boardMac, start: start, end: end);
-      final recentRecords = await _apiService.getBoardData(
-        widget.board.boardMac,
-        start: now.subtract(const Duration(minutes: 15)),
-        end: now,
-      );
-
-      // Predictions are optional: on failure the chart shows only actual data.
       final dayEnd = DateTime(d.year, d.month, d.day + 1);
       final today = DateTime(now.year, now.month, now.day);
       final mac = widget.board.boardMac;
-      final [dayPrediction, weekPrediction] = await Future.wait([
-        _apiService.getBoardPrediction(mac, start, dayEnd),
-        _apiService.getBoardPrediction(mac, today, DateTime(now.year, now.month, now.day + 7)),
-      ].map((f) => f.catchError((_) => <HourPrediction>[])));
+      // Predictions are optional: on failure the chart shows only actual data.
+      final (records, recentRecords, dayPrediction, weekPrediction) = await (
+        _apiService.getBoardData(mac, start: start, end: end),
+        _apiService.getBoardData(mac, start: now.subtract(const Duration(minutes: 15)), end: now),
+        _apiService.getBoardPrediction(mac, start, dayEnd).catchError((_) => <HourPrediction>[]),
+        _apiService
+            .getBoardPrediction(mac, today, DateTime(now.year, now.month, now.day + 7))
+            .catchError((_) => <HourPrediction>[]),
+      ).wait;
+      final current = DataAggregator.getCurrentCrowdLevel(recentRecords);
+      final offline = current == null ? await offlineNote(_apiService, mac, now) : null;
 
       if (!mounted) return;
       setState(() {
         _buckets = DataAggregator.aggregateToFixedBuckets(records, start, end);
         _dayPrediction = {for (final p in dayPrediction) p.timestamp.millisecondsSinceEpoch: p};
         _weekPrediction = weekPrediction;
-        _currentClients = DataAggregator.getCurrentCrowdLevel(recentRecords);
+        _currentClients = current;
+        _offlineNote = offline;
         _isLoading = false;
         _isBusy = false;
       });
@@ -99,6 +109,9 @@ class _DetailsScreenState extends State<DetailsScreen> {
       });
     }
   }
+
+  /// Calendar day, not 24 h, so DST changes do not skip or repeat a day.
+  DateTime _shiftDay(int days) => DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day + days);
 
   void _showDate(DateTime date) {
     setState(() => _selectedDate = date);
@@ -149,7 +162,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
       });
       messenger.showSnackBar(const SnackBar(content: Text('Zmieniono nazwę')));
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Nie udało się zmienić nazwy: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Nie udało się zmienić nazwy')));
     }
   }
 
@@ -244,7 +257,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
         Container(
           clipBehavior: Clip.antiAlias,
           decoration: panelDecoration(),
-          child: StatusBlock(current: _currentClients, prediction: _currentHourPrediction()),
+          child: StatusBlock(current: _currentClients, prediction: _currentHourPrediction(), extra: _hints()),
         ),
         const SizedBox(height: 32),
         Row(
@@ -261,12 +274,12 @@ class _DetailsScreenState extends State<DetailsScreen> {
             IconButton(
               icon: const Icon(Icons.chevron_left),
               tooltip: 'Poprzedni dzień',
-              onPressed: () => _showDate(_selectedDate.subtract(const Duration(days: 1))),
+              onPressed: () => _showDate(_shiftDay(-1)),
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right),
               tooltip: 'Następny dzień',
-              onPressed: _isToday(_selectedDate) ? null : () => _showDate(_selectedDate.add(const Duration(days: 1))),
+              onPressed: _isToday(_selectedDate) ? null : () => _showDate(_shiftDay(1)),
             ),
           ],
         ),
@@ -309,10 +322,29 @@ class _DetailsScreenState extends State<DetailsScreen> {
     );
   }
 
+  HourPrediction? _hourPrediction(DateTime hourStart) =>
+      _weekPrediction.where((p) => p.timestamp.isAtSameMomentAs(hourStart)).firstOrNull;
+
   HourPrediction? _currentHourPrediction() {
     final now = DateTime.now();
+    return _hourPrediction(DateTime(now.year, now.month, now.day, now.hour));
+  }
+
+  /// Lines under the status: last reading when offline, otherwise the next-hour trend
+  /// and today's quietest upcoming hour.
+  List<String> _hints() {
+    if (_currentClients == null) return [?_offlineNote];
+    final now = DateTime.now();
     final hourStart = DateTime(now.year, now.month, now.day, now.hour);
-    return _weekPrediction.where((p) => p.timestamp.isAtSameMomentAs(hourStart)).firstOrNull;
+    final trend = DataAggregator.trend(_hourPrediction(hourStart), _hourPrediction(hourStart.add(const Duration(hours: 1))));
+    final quiet = DataAggregator.quietestHour(_weekPrediction, now,
+        fromHour: _selectedTimeframe == Timeframe.daytime ? 6 : 0);
+    return [
+      if (trend == CrowdComparison.busier) 'zwykle zaraz robi się tłoczniej',
+      if (trend == CrowdComparison.quieter) 'zwykle zaraz robi się luźniej',
+      if (quiet != null)
+        'najluźniej dziś ok. ${DateFormat('H:00').format(quiet.timestamp)} (zwykle ${countText(quiet.mean!)})',
+    ];
   }
 
   /// Y axis top and grid step, on round numbers so the top label sits on a grid line.
