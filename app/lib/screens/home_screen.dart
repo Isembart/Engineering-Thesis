@@ -5,6 +5,7 @@ import '../models/hour_prediction.dart';
 import '../services/api_service.dart';
 import '../services/data_aggregator.dart';
 import '../widgets/board_card.dart';
+import '../widgets/content_width.dart';
 import '../widgets/status_block.dart';
 import 'details_screen.dart';
 import 'settings_screen.dart';
@@ -132,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Stack(
         children: [
-          RefreshIndicator(onRefresh: _load, child: _buildContent()),
+          RefreshIndicator(onRefresh: _load, child: ContentWidth(child: _buildContent())),
           if (_isLoading)
             Container(
               color: Colors.white.withValues(alpha: 0.6),

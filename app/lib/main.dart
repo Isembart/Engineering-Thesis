@@ -46,6 +46,7 @@ class CrowdnessApp extends StatelessWidget {
           backgroundColor: Colors.white,
           foregroundColor: Colors.black87,
           elevation: 0,
+          scrolledUnderElevation: 0,
           titleTextStyle: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black87),
         ),
         inputDecorationTheme: InputDecorationTheme(
@@ -59,13 +60,6 @@ class CrowdnessApp extends StatelessWidget {
       supportedLocales: const [Locale('pl')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       scrollBehavior: AppScrollBehavior(),
-      // Phone layout; on a wide window (the Linux test build) keep it a centered column.
-      builder: (context, child) => ColoredBox(
-        color: _background,
-        child: Center(
-          child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 560), child: child),
-        ),
-      ),
       home: const HomeScreen(),
     );
   }

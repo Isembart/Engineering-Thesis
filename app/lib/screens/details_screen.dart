@@ -6,6 +6,7 @@ import '../models/hour_prediction.dart';
 import '../services/api_service.dart';
 import '../services/data_aggregator.dart';
 import '../widgets/board_card.dart';
+import '../widgets/content_width.dart';
 import '../widgets/crowd_comparison_row.dart';
 import '../widgets/status_block.dart';
 import '../widgets/week_heatmap.dart';
@@ -211,7 +212,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
                 : const SizedBox(height: 2),
           ),
         ),
-        body: _buildBody(),
+        body: ContentWidth(child: _buildBody()),
       ),
     );
   }
@@ -509,8 +510,7 @@ class _DetailsScreenState extends State<DetailsScreen> {
               const style = TextStyle(color: Colors.white, fontSize: 12);
               return switch (s.barIndex) {
                 0 => LineTooltipItem('${header}typowo ${p!.min}–${p.max}', style),
-                2 => LineTooltipItem('${header}zwykle ok. ${s.y.round()}', style),
-                3 => LineTooltipItem('${header}zmierzono ok. ${s.y.round()}', style.copyWith(fontWeight: FontWeight.bold)),
+                3 => LineTooltipItem('${header}zmierzono ${s.y.round()}', style.copyWith(fontWeight: FontWeight.bold)),
                 _ => null,
               };
             }).toList(),

@@ -4,6 +4,7 @@ import '../models/board.dart';
 import '../models/board_settings.dart';
 import '../services/api_service.dart';
 import '../widgets/board_card.dart';
+import '../widgets/content_width.dart';
 
 class BoardSettingsScreen extends StatefulWidget {
   final Board board;
@@ -169,7 +170,7 @@ class _BoardSettingsScreenState extends State<BoardSettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Ustawienia: ${boardDisplayName(widget.board)}')),
-      body: _buildBody(),
+      body: ContentWidth(child: _buildBody()),
     );
   }
 
